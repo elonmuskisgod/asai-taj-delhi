@@ -1,0 +1,8 @@
+.DS_Store
+*.swp
+build/
+*.elf
+*.bin
+asai_dashboard/secrets.h
+.firebase/
+scripts/__pycache__/

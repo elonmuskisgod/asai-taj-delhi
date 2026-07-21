@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ASAI Taj Delhi — Work Log 21 Jul 2026</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #111;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 18pt; margin: 0 0 4pt; letter-spacing: -0.02em; }
+    h2 {
+      font-size: 12pt;
+      margin: 18pt 0 6pt;
+      padding-bottom: 3pt;
+      border-bottom: 1.5px solid #111;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 10.5pt; margin: 12pt 0 4pt; page-break-after: avoid; }
+    p, li { margin: 0 0 6pt; }
+    ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+    .meta { color: #444; font-size: 9.5pt; margin-bottom: 14pt; }
+    .box {
+      border: 1px solid #ccc;
+      background: #f7f7f7;
+      padding: 8pt 10pt;
+      margin: 8pt 0;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 8.5pt;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8pt 0 12pt;
+      font-size: 9.5pt;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 5pt 6pt;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eee; }
+    .note {
+      background: #fff8e6;
+      border-left: 3px solid #c9a227;
+      padding: 6pt 8pt;
+      margin: 8pt 0;
+      font-size: 9.5pt;
+    }
+    .ok {
+      background: #eefaf1;
+      border-left: 3px solid #1a7f37;
+      padding: 6pt 8pt;
+      margin: 8pt 0;
+      font-size: 9.5pt;
+    }
+    .foot {
+      margin-top: 20pt;
+      padding-top: 8pt;
+      border-top: 1px solid #ddd;
+      font-size: 8.5pt;
+      color: #666;
+    }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8.5pt; }
+  </style>
+</head>
+<body>
+
+  <h1>ASAI Taj Delhi — Work Log &amp; Replication Guide</h1>
+  <p class="meta">
+    Date: Tuesday, 21 July 2026 · Updated: ~03:40 IST · Project: <strong>asai-taj-delhi</strong> ·
+    Account: melvai@gmail.com · Repo: <code>sketch_jun19a</code><br>
+    Purpose: Single record of today’s Firebase + live dashboard setup for replication and Claude archive.
+  </p>
+
+  <div class="ok">
+    <strong>Current status:</strong> Firmware <code>asai_dashboard</code> <strong>v4.0</strong> publishes WiFi-direct to
+    Taj RTDB (<code>/ASAITajDelhi/*</code>). USB bridge <code>serial_to_taj.py</code> is fallback only —
+    stop it when WiFi firmware is live (avoid double writes). Social untouched.
+  </div>
+
+  <h2>1. Outcome (what exists now)</h2>
+  <ul>
+    <li><strong>Firebase project</strong> <code>asai-taj-delhi</code> (Spark plan, Analytics off)</li>
+    <li><strong>Realtime Database</strong> region <code>asia-southeast1</code> (Singapore) — Mumbai <code>asia-south1</code> is <em>not</em> offered for RTDB</li>
+    <li><strong>Hosting live:</strong> <a href="https://asai-taj-delhi.web.app">https://asai-taj-delhi.web.app</a></li>
+    <li><strong>Dashboard focus:</strong> lighting (AS7341 spectral), sound, health scores, compliance, CPCB AQI, Delhi outdoor vs Taj indoor (US AQI)</li>
+    <li><strong>Live data path (preferred):</strong> ESP32 WiFi → Firebase_ESP_Client → <code>/ASAITajDelhi/live</code> + <code>/log</code></li>
+    <li><strong>Fallback:</strong> USB Serial → <code>scripts/serial_to_taj.py</code> → same paths</li>
+    <li><strong>Removed:</strong> hotel website folders (<code>website/</code>, <code>website-heritage/</code>, <code>website-comforts-backup/</code>)</li>
+  </ul>
+
+  <h2>2. Firebase project setup (console)</h2>
+  <ol>
+    <li>Go to <code>console.firebase.google.com</code> → Add project → name <code>asai-taj-delhi</code></li>
+    <li>Skip Google Analytics</li>
+    <li>Build → Realtime Database → Create → region <strong>asia-southeast1</strong> → start in <strong>test mode</strong></li>
+    <li>Build → Hosting → Get started (or init via CLI)</li>
+    <li>Project settings → Add app → Web → nickname e.g. <code>asai-taj-delhi-web</code> → copy <code>firebaseConfig</code></li>
+  </ol>
+
+  <h3>firebaseConfig (web)</h3>
+  <div class="box">const firebaseConfig = {
+  apiKey: "AIzaSyC5rCvD8LNKzgr6d3ZA1Gl-pLfi4gAn0x8",
+  authDomain: "asai-taj-delhi.firebaseapp.com",
+  databaseURL: "https://asai-taj-delhi-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "asai-taj-delhi",
+  storageBucket: "asai-taj-delhi.firebasestorage.app",
+  messagingSenderId: "459317113967",
+  appId: "1:459317113967:web:10015c5316759dd5af899a"
+};</div>
+
+  <div class="note">
+    <strong>Security:</strong> RTDB was opened in test mode (time-limited open read/write). Lock rules before any public/client-facing launch.
+  </div>
+
+  <h2>3. Local repo / Hosting config</h2>
+  <table>
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>.firebaserc</code></td><td>Default project <code>asai-taj-delhi</code></td></tr>
+    <tr><td><code>firebase.json</code></td><td>Hosting public folder = <code>public/</code></td></tr>
+    <tr><td><code>public/index.html</code></td><td>Full live dashboard (single file)</td></tr>
+    <tr><td><code>asai_dashboard/asai_dashboard.ino</code></td><td>ESP32 firmware v4.0 — sensors + OLED + WiFi → Taj RTDB</td></tr>
+    <tr><td><code>asai_dashboard/secrets.h</code></td><td>Local WiFi SSID/password (gitignored); copy from <code>secrets.h.example</code></td></tr>
+    <tr><td><code>scripts/serial_to_taj.py</code></td><td>USB serial → Taj <em>fallback</em>; stop when WiFi firmware is publishing</td></tr>
+    <tr><td><code>scripts/simulate-live.js</code></td><td>Dev simulator only — <strong>stopped</strong>; do not run alongside real ESP32</td></tr>
+  </table>
+
+  <h3>CLI commands to replicate deploy</h3>
+  <div class="box">cd /path/to/sketch_jun19a
+firebase login          # if needed
+firebase use asai-taj-delhi
+firebase deploy --only hosting</div>
+
+  <h2>4. Live data — WiFi-direct firmware (preferred)</h2>
+  <p><strong>Do not use Social.</strong> Social Proto2 is a separate project. Taj ESP32 publishes with Mobizt
+  <code>Firebase_ESP_Client</code> (same library pattern as Social) but only to <code>asai-taj-delhi</code> /
+  <code>/ASAITajDelhi/*</code>.</p>
+
+  <h3>Library</h3>
+  <p>Arduino Library Manager: <strong>Firebase Arduino Client Library for ESP8266 and ESP32</strong> (Mobizt).</p>
+
+  <h3>Flash steps</h3>
+  <ol>
+    <li>Edit <code>asai_dashboard/secrets.h</code> — set <code>WIFI_SSID</code> / <code>WIFI_PASSWORD</code> (from <code>secrets.h.example</code>)</li>
+    <li>Flash <code>asai_dashboard.ino</code> (ESP32-S3)</li>
+    <li>Serial @ 115200: look for <code>WiFi OK</code>, <code>Firebase → asai-taj-delhi ready</code>, then <code>cloud: Taj OK</code></li>
+    <li><strong>Stop</strong> <code>serial_to_taj.py</code> if running — one writer only</li>
+    <li>Open <a href="https://asai-taj-delhi.web.app">asai-taj-delhi.web.app</a> — payload includes <code>source: "esp32_wifi"</code></li>
+  </ol>
+
+  <div class="box"># Paths written by firmware every ~5s
+setJSON  /ASAITajDelhi/live
+pushJSON /ASAITajDelhi/log
+# Toggle offline sensors-only: #define ENABLE_CLOUD 0</div>
+
+  <h3>Fallback — USB serial bridge</h3>
+  <ol>
+    <li>Flash / run firmware (sensors → Serial @ 115200)</li>
+    <li><strong>Close Arduino Serial Monitor</strong> (port free — typically <code>/dev/cu.usbmodem2101</code>)</li>
+    <li>Run the bridge:</li>
+  </ol>
+  <div class="box">python3 scripts/serial_to_taj.py
+# PUT  /ASAITajDelhi/live.json
+# POST /ASAITajDelhi/log.json
+# Do not run alongside WiFi firmware</div>
+
+  <h3>Serial line formats the bridge parses</h3>
+  <div class="box">Lux 185
+415 violet |####...|  420
+...
+nir/clear 0.12
+CCT ~3200K (calibrated)  ->  warm LED
+IAQ 32 (acc 2) Excellent | CO2eq 620ppm | VOC 0.35ppm | 23.4C 48%
+PM2.5 28 (SI 47) | PM10 52 (SI 51) -> AQI 51 [Satisfactory] driven by PM10
+Mic -45.2 dBFS (~60 dBA)</div>
+
+  <div class="note">
+    <strong>Port busy?</strong> If you see <code>Resource busy</code>, quit Serial Monitor (or any other process on the USB modem), then restart <code>serial_to_taj.py</code>.
+  </div>
+
+  <h2>5. RTDB data paths</h2>
+  <table>
+    <tr><th>Path</th><th>Write pattern</th><th>Purpose</th></tr>
+    <tr><td><code>/ASAITajDelhi/live</code></td><td>overwrite (~5s)</td><td>Dashboard <code>.on('value')</code></td></tr>
+    <tr><td><code>/ASAITajDelhi/log</code></td><td>pushJSON</td><td>Timeline history</td></tr>
+    <tr><td><code>/ASAITajDelhi/delhi_outdoor</code></td><td>overwrite</td><td>Connaught Place outdoor US AQI (aqi.in ground snapshot)</td></tr>
+  </table>
+
+  <h3>Live payload fields</h3>
+  <table>
+    <tr><th>Field</th><th>Source</th><th>Notes</th></tr>
+    <tr><td><code>temperature</code>, <code>humidity</code></td><td>BSEC</td><td>From IAQ serial line</td></tr>
+    <tr><td><code>iaq</code>, <code>iaq_accuracy</code>, <code>eCO2</code>, <code>voc</code></td><td>BSEC</td><td></td></tr>
+    <tr><td><code>noise_level</code></td><td>INMP441</td><td>approx dBA</td></tr>
+    <tr><td><code>light_intensity</code></td><td>BH1750</td><td>lux</td></tr>
+    <tr><td><code>cct</code>, <code>light_type</code>, <code>nir_ratio</code></td><td>AS7341</td><td></td></tr>
+    <tr><td><code>f1</code>…<code>f8</code>, <code>bands[]</code></td><td>AS7341</td><td>Spectral</td></tr>
+    <tr><td><code>pm25</code>, <code>pm10</code>, <code>aqi</code>, <code>aqi_category</code>, <code>aqi_dominant</code>, <code>si25</code>, <code>si10</code></td><td>PMS7003</td><td>CPCB</td></tr>
+    <tr><td><code>timestamp</code></td><td>ESP32 NTP (or bridge)</td><td>epoch ms</td></tr>
+    <tr><td><code>source</code></td><td>firmware</td><td><code>esp32_wifi</code> when on-device publish</td></tr>
+  </table>
+
+  <h2>6. Dashboard sections</h2>
+  <ol>
+    <li><strong>Health score</strong> — comfort / wellness / acoustics / lighting</li>
+    <li><strong>Compliance grade</strong> A–F — zone: Lobby, Dining, Bar, Corridor, Meeting</li>
+    <li><strong>Live telemetry</strong> — temp, RH, lux, CCT, sound, CPCB AQI, BSEC IAQ, eCO₂</li>
+    <li><strong>AS7341 spectral color</strong> — CCT, NIR/Clear, F1–F8 bars</li>
+    <li><strong>CPCB AQI panel</strong> — index, PM2.5/PM10, sub-indices</li>
+    <li><strong>Delhi outdoor vs Taj indoor</strong> — <em>US AQI</em> (same scale as aqi.in)</li>
+    <li><strong>Lighting suitability</strong> + <strong>acoustic zones</strong></li>
+    <li><strong>Timeline</strong> + zone compliance checklist</li>
+  </ol>
+
+  <h2>7. Critical lesson: AQI 51 vs aqi.in ~140</h2>
+  <p><strong>Root cause:</strong> First outdoor comparison used Open-Meteo modelled PM with <em>CPCB</em> math → ~51. aqi.in Connaught Place defaults to <em>US AQI</em> (~144) with ground PM2.5 ~53 µg/m³.</p>
+  <ul>
+    <li>Comparison uses <strong>US AQI</strong> (EPA), labeled to match aqi.in</li>
+    <li>Outdoor prefers RTDB <code>/ASAITajDelhi/delhi_outdoor</code> when fresh (seeded from aqi.in: us_aqi 144, pm25 53, pm10 88)</li>
+    <li>Fallback: Open-Meteo <code>us_aqi</code> field (not CPCB-from-model-PM)</li>
+    <li>Taj indoor CPCB stays on the AQI panel; comparison converts PMS PM2.5 → US AQI</li>
+    <li>Reference: <a href="https://www.aqi.in/in/dashboard/india/delhi/new-delhi/connaught-place">aqi.in Connaught Place</a></li>
+  </ul>
+
+  <h2>8. Template lineage</h2>
+  <ul>
+    <li><strong>UI / scoring shell:</strong> Social Thane dashboard (<code>~/Desktop/AetherSensAI/Social/index.html</code>) — used as UI pattern only</li>
+    <li><strong>Compliance letter idea:</strong> Phygital <code>audit.html</code></li>
+    <li><strong>Sensor suite:</strong> <code>asai_dashboard.ino</code> (BH1750, AS7341, BME/BSEC, INMP441, PMS7003)</li>
+    <li><strong>Explicit constraint:</strong> Do not write to or retarget Social Firebase (<code>asaisocialproto2</code>)</li>
+  </ul>
+
+  <h2>9. Timeline of data sources today</h2>
+  <table>
+    <tr><th>Phase</th><th>Source</th><th>Notes</th></tr>
+    <tr><td>1</td><td>One-shot RTDB seed</td><td>Static snapshot — telemetry did not move</td></tr>
+    <tr><td>2</td><td><code>simulate-live.js</code></td><td>Fake drifting values every 5s — stopped</td></tr>
+    <tr><td>3</td><td><code>serial_to_taj.py</code> + ESP32</td><td>USB bridge — real sensors → Taj</td></tr>
+    <tr><td>4</td><td><code>asai_dashboard</code> v4.0 WiFi</td><td><strong>Preferred</strong> — ESP32 publishes Taj RTDB directly</td></tr>
+  </table>
+
+  <h2>10. Next steps</h2>
+  <ol>
+    <li>Edit <code>secrets.h</code>, flash v4.0, confirm <code>cloud: Taj OK</code> on Serial</li>
+    <li>Stop USB bridge when WiFi publish is confirmed</li>
+    <li>Refresh <code>delhi_outdoor</code> periodically from aqi.in / trusted ground API</li>
+    <li>Lock RTDB security rules before guest-facing use</li>
+  </ol>
+
+  <h2>11. Quick reference URLs</h2>
+  <table>
+    <tr><th>What</th><th>URL</th></tr>
+    <tr><td>Live dashboard</td><td>https://asai-taj-delhi.web.app</td></tr>
+    <tr><td>Firebase console</td><td>https://console.firebase.google.com/project/asai-taj-delhi/overview</td></tr>
+    <tr><td>RTDB</td><td>https://asai-taj-delhi-default-rtdb.asia-southeast1.firebasedatabase.app</td></tr>
+    <tr><td>Delhi outdoor reference</td><td>https://www.aqi.in/in/dashboard/india/delhi/new-delhi/connaught-place</td></tr>
+  </table>
+
+  <p class="foot">
+    Generated 21 Jul 2026 · updated with WiFi-direct Taj publish (v4.0) · Melroy D’Mello · ASAI Taj Delhi ·
+    Share this PDF into Claude Projects / memory as the replication record.
+  </p>
+
+</body>
+</html>
