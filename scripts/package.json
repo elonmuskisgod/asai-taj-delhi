@@ -1,0 +1,7 @@
+{
+  "name": "asai-taj-delhi-scripts",
+  "private": true,
+  "dependencies": {
+    "twilio": "^5.4.0"
+  }
+}

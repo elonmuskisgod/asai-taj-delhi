@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASAI · Taj Delhi | Fleet Intelligence (Concept)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    :root {
+      --bg: #0a0a0c;
+      --panel: #121214;
+      --line: #1c1c1f;
+      --ink: #f4f4f7;
+      --muted: #94a3b8;
+      --ok: #10b981;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --accent: #3b82f6;
+      --gold: #c9a227;
+    }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+    }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+    .card { background: var(--panel); border: 1px solid var(--line); }
+    .pulse-dot {
+      width: 0.5rem; height: 0.5rem; border-radius: 9999px;
+      background: var(--warn);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.45);
+    }
+    .bar-track {
+      height: 0.4rem; border-radius: 9999px;
+      background: #1c1c1f; overflow: hidden;
+    }
+    .bar-track > span { display: block; height: 100%; border-radius: 9999px; }
+    .grad-ring {
+      width: 5.5rem; height: 5.5rem;
+      border-radius: 9999px;
+      display: grid; place-items: center;
+      border: 3px solid var(--line);
+      background: #161619;
+    }
+    .node-tile {
+      transition: border-color 0.15s ease;
+    }
+    .node-tile:hover { border-color: #3b3b42; }
+    .concept-banner {
+      background: linear-gradient(90deg, rgba(201,162,39,0.12), rgba(59,130,246,0.08));
+      border-bottom: 1px solid rgba(201,162,39,0.25);
+    }
+    .cct-swatch {
+      width: 100%; height: 0.55rem; border-radius: 9999px;
+      background: linear-gradient(90deg, #ff9a3c, #ffe08a, #f5f0e6, #c8d9ff, #8fb0ff);
+    }
+    .prop-flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      align-items: center;
+    }
+    @media (max-width: 768px) {
+      .prop-flow { grid-template-columns: 1fr; }
+    }
+    .arrow-h::after {
+      content: "→";
+      position: absolute;
+      right: -0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #475569;
+      font-size: 0.75rem;
+    }
+    @media (max-width: 768px) {
+      .arrow-h::after {
+        content: "↓";
+        right: 50%;
+        top: auto;
+        bottom: -0.85rem;
+        transform: translateX(50%);
+      }
+    }
+    table.audit td, table.audit th {
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+    table.audit th {
+      color: #64748b;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased">
+
+  <!-- Concept banner -->
+  <div class="concept-banner px-6 md:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-[11px] mono text-amber-200/90">
+      CONCEPT MOCKUP · static data · 10-node fleet intelligence · not connected to Firebase
+    </p>
+    <p class="text-[10px] mono text-slate-500">asai-taj-delhi · fleet view v0</p>
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-[#1c1c1f] bg-[#0a0a0c]/90 backdrop-blur px-6 md:px-8 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-3">
+        <div class="h-6 w-1.5 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"></div>
+        <h1 class="text-lg md:text-xl font-bold tracking-tight uppercase mono">
+          ASAI <span class="text-slate-500 font-medium normal-case">// Taj Delhi</span>
+          <span class="text-slate-600 font-medium normal-case text-sm ml-1">· Fleet</span>
+        </h1>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">Property-wide intelligence · 10 nodes · cross-zone gradients · audit trail</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 text-xs mono">
+      <div class="card px-3 py-1.5 rounded-md text-slate-400 flex items-center gap-2">
+        <span class="pulse-dot"></span>
+        <span>Mock · 21 Jul 2026 16:42 IST</span>
+      </div>
+      <div class="card px-3 py-1.5 rounded-md text-emerald-400/90">10 / 10 online</div>
+      <div class="card px-3 py-1.5 rounded-md text-slate-500">Retention 365d · hash-chained</div>
+    </div>
+  </header>
+
+  <main class="p-6 md:p-8 space-y-8 max-w-[1500px] mx-auto">
+
+    <!-- Executive header -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div class="card rounded-2xl p-6 lg:col-span-3 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent pointer-events-none"></div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Compliance Grade</p>
+        <div class="flex items-center gap-4">
+          <div class="grad-ring border-emerald-500/40">
+            <span class="text-4xl font-bold tracking-tighter text-emerald-400">A−</span>
+          </div>
+          <div>
+            <p class="text-sm text-slate-300">CPCB / NGT noise</p>
+            <p class="text-[11px] mono text-slate-500 mt-1">2 exceedances · last 24h</p>
+            <p class="text-[11px] mono text-emerald-400/80 mt-1">Integrity OK</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card rounded-2xl p-6 lg:col-span-3 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent pointer-events-none"></div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Certification Readiness</p>
+        <div class="flex items-end gap-2">
+          <h2 class="text-5xl font-bold tracking-tighter leading-none">87</h2>
+          <span class="text-slate-500 mono text-sm mb-1.5">/ 100</span>
+        </div>
+        <p class="mt-2 text-sm text-slate-400">IGBC / LEED / WELL-adjacent evidence pack</p>
+        <p class="text-[11px] mono text-slate-500 mt-2">Voluntary · brand-assurance track</p>
+      </div>
+
+      <div class="card rounded-2xl p-6 lg:col-span-3 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none"></div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Brand Light Index</p>
+        <div class="flex items-end gap-2">
+          <h2 class="text-5xl font-bold tracking-tighter leading-none text-amber-300">94</h2>
+          <span class="text-slate-500 mono text-sm mb-1.5">%</span>
+        </div>
+        <p class="mt-2 text-sm text-slate-400">Zones on spectral signature</p>
+        <p class="text-[11px] mono text-amber-400/80 mt-2">1 drift alert · Bar</p>
+      </div>
+
+      <div class="card rounded-2xl p-6 lg:col-span-3">
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Active Alerts</p>
+        <ul class="space-y-2.5 text-sm">
+          <li class="flex gap-2">
+            <span class="text-amber-400 mono text-[10px] mt-0.5 shrink-0">WARN</span>
+            <span class="text-slate-300">PM ingress Lobby→Corridor-A · Δ+18 µg/m³</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-amber-400 mono text-[10px] mt-0.5 shrink-0">WARN</span>
+            <span class="text-slate-300">Bar CCT +210K vs brand brief (spectral drift)</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-rose-400 mono text-[10px] mt-0.5 shrink-0">EXC</span>
+            <span class="text-slate-300">Kitchen-adj 68.4 dBA · night limit 55</span>
+          </li>
+          <li class="flex gap-2">
+            <span class="text-slate-500 mono text-[10px] mt-0.5 shrink-0">INFO</span>
+            <span class="text-slate-400">N07 Spa corroborates N06 Corridor-B · Δ0.8 dBA</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Fleet map -->
+    <section>
+      <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+        <div>
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">10-Node Fleet Map</h3>
+          <p class="text-xs text-slate-500 mt-1">Status from peer-baseline · anomaly = deviation from fleet median</p>
+        </div>
+        <div class="flex gap-3 text-[10px] mono text-slate-500">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>On brief</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Watch</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Alert</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <!-- N01 Lobby -->
+        <div class="card node-tile rounded-xl p-4 border-amber-500/30">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N01</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Lobby</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 42 · 52 dBA · 2850K</p>
+          <p class="text-[10px] text-amber-400/90 mt-2">Ingress front · Δ fleet +2.1σ PM</p>
+        </div>
+        <!-- N02 Grand Staircase -->
+        <div class="card node-tile rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N02</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Grand Staircase</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 28 · 48 dBA · 2720K</p>
+          <p class="text-[10px] text-emerald-400/80 mt-2">On signature · peers OK</p>
+        </div>
+        <!-- N03 Dining A -->
+        <div class="card node-tile rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N03</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Dining A</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 18 · 54 dBA · 2400K</p>
+          <p class="text-[10px] text-emerald-400/80 mt-2">Warm brief · IAQ Excellent</p>
+        </div>
+        <!-- N04 Dining B -->
+        <div class="card node-tile rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N04</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Dining B</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 16 · 53 dBA · 2380K</p>
+          <p class="text-[10px] text-emerald-400/80 mt-2">Corroborates N03 ΔCCT 20K</p>
+        </div>
+        <!-- N05 Bar -->
+        <div class="card node-tile rounded-xl p-4 border-amber-500/30">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N05</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Bar / Lounge</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 22 · 58 dBA · 2410K</p>
+          <p class="text-[10px] text-amber-400/90 mt-2">Spectral drift · LED aging?</p>
+        </div>
+        <!-- N06 Corridor A -->
+        <div class="card node-tile rounded-xl p-4 border-amber-500/30">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N06</span>
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Corridor A</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 31 · 45 dBA · 3000K</p>
+          <p class="text-[10px] text-amber-400/90 mt-2">Downstream of Lobby ingress</p>
+        </div>
+        <!-- N07 Corridor B -->
+        <div class="card node-tile rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N07</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Corridor B</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 14 · 44 dBA · 2980K</p>
+          <p class="text-[10px] text-emerald-400/80 mt-2">Interior envelope stable</p>
+        </div>
+        <!-- N08 Spa -->
+        <div class="card node-tile rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N08</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Spa</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 9 · 38 dBA · 2200K</p>
+          <p class="text-[10px] text-emerald-400/80 mt-2">Quietest · signature lock</p>
+        </div>
+        <!-- N09 Meeting / Ballroom -->
+        <div class="card node-tile rounded-xl p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N09</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Meeting / Ballroom</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 12 · 49 dBA · 3200K</p>
+          <p class="text-[10px] text-emerald-400/80 mt-2">Event-ready CCT brief</p>
+        </div>
+        <!-- N10 Kitchen-adjacent -->
+        <div class="card node-tile rounded-xl p-4 border-rose-500/35">
+          <div class="flex items-center justify-between mb-2">
+            <span class="mono text-[10px] text-slate-500">N10</span>
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+          </div>
+          <p class="font-semibold text-sm">Kitchen-adjacent</p>
+          <p class="text-[11px] mono text-slate-500 mt-1">PM2.5 35 · 68 dBA · 4000K</p>
+          <p class="text-[10px] text-rose-400/90 mt-2">Night noise exceedance</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Delhi outdoor vs indoor envelope -->
+    <section class="card rounded-2xl p-5 md:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-5">
+        <div>
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Delhi Outdoor vs Indoor Envelope</h3>
+          <p class="text-xs text-slate-400 mt-1">US AQI outdoor reference · indoor PM2.5 gradient across all 10 nodes</p>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] mono text-slate-500">Outdoor US AQI</p>
+          <p class="text-2xl font-bold text-orange-400">168 <span class="text-sm font-medium text-slate-500">Unhealthy</span></p>
+        </div>
+      </div>
+      <div class="space-y-2.5">
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-500">Outdoor</span>
+          <div class="flex-1 bar-track h-3"><span style="width:100%;background:#f97316"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-orange-400">AQI 168</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N01 Lobby</span>
+          <div class="flex-1 bar-track h-3"><span style="width:42%;background:#f59e0b"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-amber-400">42 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N10 Kitchen</span>
+          <div class="flex-1 bar-track h-3"><span style="width:35%;background:#f59e0b"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-amber-400">35 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N06 Corr-A</span>
+          <div class="flex-1 bar-track h-3"><span style="width:31%;background:#eab308"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-yellow-400">31 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N02 Stairs</span>
+          <div class="flex-1 bar-track h-3"><span style="width:28%;background:#eab308"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-yellow-400">28 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N05 Bar</span>
+          <div class="flex-1 bar-track h-3"><span style="width:22%;background:#84cc16"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-lime-400">22 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N03 Dining A</span>
+          <div class="flex-1 bar-track h-3"><span style="width:18%;background:#22c55e"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-emerald-400">18 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N04 Dining B</span>
+          <div class="flex-1 bar-track h-3"><span style="width:16%;background:#22c55e"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-emerald-400">16 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N07 Corr-B</span>
+          <div class="flex-1 bar-track h-3"><span style="width:14%;background:#10b981"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-emerald-400">14 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N09 Ballroom</span>
+          <div class="flex-1 bar-track h-3"><span style="width:12%;background:#10b981"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-emerald-400">12 µg</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-28 shrink-0 text-[11px] mono text-slate-400">N08 Spa</span>
+          <div class="flex-1 bar-track h-3"><span style="width:9%;background:#059669"></span></div>
+          <span class="w-20 text-right text-[11px] mono text-emerald-400">9 µg</span>
+        </div>
+      </div>
+      <p class="mt-4 text-[11px] text-slate-500 mono">
+        Fleet insight: outdoor→indoor attenuation ≈ 4× at Lobby; further 4.7× Lobby→Spa.
+        Envelope integrity visible only with multi-node path.
+      </p>
+    </section>
+
+    <!-- ========== VALUE PLAY 1: NOISE → COMPLIANCE ========== -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-rose-500"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">Noise → Compliance</h2>
+          <p class="text-xs text-slate-500 mt-0.5">CPCB / MPCB day–night limits · NGT-ready continuous audit · tamper-evident</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="card rounded-2xl p-5 lg:col-span-7">
+          <div class="flex items-center justify-between border-b border-[#1c1c1f] pb-3 mb-4">
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Zone dBA vs Statutory Limits</h3>
+            <span class="text-[10px] mono text-slate-500">Night period · limit 55 dBA (commercial)</span>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N08 Spa</span>
+                <span class="mono text-emerald-400">38.2 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track relative">
+                <span style="width:69.5%;background:#10b981"></span>
+                <div class="absolute top-0 bottom-0 w-px bg-slate-400/60" style="left:100%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N07 Corridor B</span>
+                <span class="mono text-emerald-400">44.1 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:80.2%;background:#10b981"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N06 Corridor A</span>
+                <span class="mono text-emerald-400">45.0 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:81.8%;background:#10b981"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N02 Grand Staircase</span>
+                <span class="mono text-emerald-400">48.4 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:88%;background:#10b981"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N09 Meeting / Ballroom</span>
+                <span class="mono text-emerald-400">49.2 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:89.5%;background:#10b981"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N01 Lobby</span>
+                <span class="mono text-emerald-400">52.0 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:94.5%;background:#84cc16"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N03 / N04 Dining</span>
+                <span class="mono text-emerald-400">53.6 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:97.5%;background:#eab308"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N05 Bar</span>
+                <span class="mono text-amber-400">58.1 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:100%;background:#f59e0b"></span></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-[11px] mb-1">
+                <span class="mono text-slate-400">N10 Kitchen-adjacent</span>
+                <span class="mono text-rose-400">68.4 <span class="text-slate-600">/ 55</span></span>
+              </div>
+              <div class="bar-track"><span style="width:100%;background:#ef4444"></span></div>
+            </div>
+          </div>
+          <p class="mt-4 text-[11px] text-slate-500">
+            Fleet baseline L<sub>eq</sub> night = <span class="mono text-slate-400">49.8 dBA</span>.
+            N10 is +3.7σ from peer median — isolated anomaly, not property-wide.
+          </p>
+        </div>
+
+        <div class="card rounded-2xl p-5 lg:col-span-5 space-y-4">
+          <div>
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-3">Exceedance Events · 24h</h3>
+            <ul class="space-y-3 text-sm">
+              <li class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
+                <div class="flex justify-between gap-2">
+                  <span class="mono text-[10px] text-rose-400">EXC-2407-014</span>
+                  <span class="mono text-[10px] text-slate-500">21 Jul 22:18 IST</span>
+                </div>
+                <p class="mt-1 text-slate-300">N10 Kitchen-adj · 68.4 dBA · night limit 55</p>
+                <p class="text-[10px] mono text-slate-500 mt-1">Duration 14m · peers N03/N04 ≤54.2 · isolated</p>
+              </li>
+              <li class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
+                <div class="flex justify-between gap-2">
+                  <span class="mono text-[10px] text-amber-400">EXC-2407-013</span>
+                  <span class="mono text-[10px] text-slate-500">21 Jul 21:04 IST</span>
+                </div>
+                <p class="mt-1 text-slate-300">N05 Bar · 58.1 dBA · night limit 55</p>
+                <p class="text-[10px] mono text-slate-500 mt-1">Duration 6m · corroborated by adjacent Dining Δ+4.2</p>
+              </li>
+            </ul>
+          </div>
+          <div class="border-t border-[#1c1c1f] pt-4">
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-3">Chain of Custody</h3>
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div class="bg-[#161619] rounded-lg p-3 border border-[#1c1c1f]">
+                <p class="text-slate-500 mono text-[10px]">Log integrity</p>
+                <p class="text-emerald-400 font-medium mt-1">SHA-256 chained</p>
+              </div>
+              <div class="bg-[#161619] rounded-lg p-3 border border-[#1c1c1f]">
+                <p class="text-slate-500 mono text-[10px]">Tamper check</p>
+                <p class="text-emerald-400 font-medium mt-1">9/9 peers OK</p>
+              </div>
+              <div class="bg-[#161619] rounded-lg p-3 border border-[#1c1c1f]">
+                <p class="text-slate-500 mono text-[10px]">Clock sync</p>
+                <p class="text-emerald-400 font-medium mt-1">NTP ±120ms</p>
+              </div>
+              <div class="bg-[#161619] rounded-lg p-3 border border-[#1c1c1f]">
+                <p class="text-slate-500 mono text-[10px]">Export</p>
+                <p class="text-slate-300 font-medium mt-1">CSV / JSON-LD</p>
+              </div>
+            </div>
+            <p class="mt-3 text-[11px] text-slate-500">
+              Inter-node corroboration: a single-node spike without neighbor agreement flags sensor fault or interference — audit-grade isolation.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== VALUE PLAY 2: IAQ → CERTIFICATION ========== -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-emerald-500"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">IAQ + Environment → Certification &amp; Brand Assurance</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Voluntary premium evidence · ESG / IGBC / LEED / WELL-adjacent · verified indoor air as brand asset</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Propagation path -->
+        <div class="card rounded-2xl p-5 lg:col-span-12">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-5">
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">PM Ingress Propagation · Fleet Path</h3>
+            <span class="text-[10px] mono text-amber-400/90">Event window 15:40–16:25 IST · door cycle Lobby</span>
+          </div>
+          <div class="prop-flow">
+            <div class="relative arrow-h bg-[#161619] border border-amber-500/40 rounded-xl p-4 text-center">
+              <p class="text-[10px] mono text-slate-500">Outdoor</p>
+              <p class="text-xl font-bold text-orange-400 mt-1">168</p>
+              <p class="text-[10px] text-slate-500">US AQI</p>
+            </div>
+            <div class="relative arrow-h bg-[#161619] border border-amber-500/35 rounded-xl p-4 text-center">
+              <p class="text-[10px] mono text-slate-500">N01 Lobby</p>
+              <p class="text-xl font-bold text-amber-400 mt-1">42</p>
+              <p class="text-[10px] text-slate-500">µg/m³ · t₀</p>
+            </div>
+            <div class="relative arrow-h bg-[#161619] border border-yellow-500/30 rounded-xl p-4 text-center">
+              <p class="text-[10px] mono text-slate-500">N06 Corr-A</p>
+              <p class="text-xl font-bold text-yellow-400 mt-1">31</p>
+              <p class="text-[10px] text-slate-500">+6 min · Δ−11</p>
+            </div>
+            <div class="relative arrow-h bg-[#161619] border border-emerald-500/25 rounded-xl p-4 text-center">
+              <p class="text-[10px] mono text-slate-500">N02 Stairs</p>
+              <p class="text-xl font-bold text-lime-400 mt-1">28</p>
+              <p class="text-[10px] text-slate-500">+11 min · Δ−3</p>
+            </div>
+            <div class="bg-[#161619] border border-emerald-500/40 rounded-xl p-4 text-center">
+              <p class="text-[10px] mono text-slate-500">Interior core</p>
+              <p class="text-xl font-bold text-emerald-400 mt-1">9–18</p>
+              <p class="text-[10px] text-slate-500">Spa–Dining · stable</p>
+            </div>
+          </div>
+          <p class="mt-4 text-xs text-slate-400">
+            Insight only a fleet can produce: ingress tracked Lobby → Corridor A → Staircase; Dining / Spa / Ballroom remained within brand envelope.
+            Single-node lobby reading alone cannot prove containment.
+          </p>
+        </div>
+
+        <div class="card rounded-2xl p-5 lg:col-span-4">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Property Rollups</h3>
+          <div class="space-y-3">
+            <div class="flex justify-between items-baseline">
+              <span class="text-sm text-slate-400">Median indoor PM2.5</span>
+              <span class="mono text-emerald-400 font-medium">18 µg/m³</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-sm text-slate-400">Median BSEC IAQ</span>
+              <span class="mono text-emerald-400 font-medium">42 · Good</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-sm text-slate-400">Zones &lt; 25 µg</span>
+              <span class="mono text-slate-200 font-medium">7 / 10</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-sm text-slate-400">Outdoor attenuation</span>
+              <span class="mono text-slate-200 font-medium">9.3× @ Spa</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-sm text-slate-400">CO₂ fleet max</span>
+              <span class="mono text-amber-400 font-medium">920 ppm · N09</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card rounded-2xl p-5 lg:col-span-4">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Zone-to-Zone Deltas</h3>
+          <ul class="space-y-2.5 text-[12px]">
+            <li class="flex justify-between gap-2 mono">
+              <span class="text-slate-500">Lobby − Spa</span>
+              <span class="text-amber-400">Δ PM +33 µg</span>
+            </li>
+            <li class="flex justify-between gap-2 mono">
+              <span class="text-slate-500">Lobby − Dining A</span>
+              <span class="text-yellow-400">Δ PM +24 µg</span>
+            </li>
+            <li class="flex justify-between gap-2 mono">
+              <span class="text-slate-500">Dining A − Dining B</span>
+              <span class="text-emerald-400">Δ PM +2 µg</span>
+            </li>
+            <li class="flex justify-between gap-2 mono">
+              <span class="text-slate-500">Corr-A − Corr-B</span>
+              <span class="text-amber-400">Δ PM +17 µg</span>
+            </li>
+            <li class="flex justify-between gap-2 mono">
+              <span class="text-slate-500">Bar − Spa (RH)</span>
+              <span class="text-slate-300">Δ +8 pt</span>
+            </li>
+          </ul>
+          <p class="mt-3 text-[11px] text-slate-500">Peer pairs Dining A/B and Corr-B/Spa validate sensors (Δ within noise floor).</p>
+        </div>
+
+        <div class="card rounded-2xl p-5 lg:col-span-4">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Certification Evidence Pack</h3>
+          <ul class="space-y-2 text-sm text-slate-300">
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Continuous IAQ time-series · 10 zones · 90d</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Outdoor vs indoor performance ratio</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Guest-facing “verified indoor air” narrative</li>
+            <li class="flex gap-2"><span class="text-emerald-400">✓</span> ESG Scope-adjacent comfort metrics</li>
+            <li class="flex gap-2"><span class="text-slate-500">○</span> <span class="text-slate-400">Third-party lab spot-check (scheduled)</span></li>
+          </ul>
+          <p class="mt-3 text-[11px] mono text-slate-500">Not framed as mandatory compliance — luxury brand assurance.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== VALUE PLAY 3: LIGHTING → BRAND SPECTRAL ========== -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-amber-400"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">Lighting → Brand Spectral Signature</h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Heritage ambience consistency · every zone hits its designed CCT / F1–F8 fingerprint · fleet detects spectral drift before guests notice
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="card rounded-2xl p-5 lg:col-span-8">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-4">
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Per-Zone Brief vs Live CCT</h3>
+            <span class="text-[10px] mono text-slate-500">AS7341 · brand brief ±150K tolerance</span>
+          </div>
+          <div class="cct-swatch mb-5 opacity-80"></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[12px] audit">
+              <thead>
+                <tr>
+                  <th>Node / Zone</th>
+                  <th>Brief</th>
+                  <th>Live CCT</th>
+                  <th>ΔK</th>
+                  <th>F1–F8 match</th>
+                  <th>NIR ratio</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody class="mono text-slate-300">
+                <tr>
+                  <td>N01 Lobby</td>
+                  <td class="text-slate-500">2800K</td>
+                  <td>2850K</td>
+                  <td class="text-emerald-400">+50</td>
+                  <td>96%</td>
+                  <td>0.12</td>
+                  <td class="text-emerald-400">On brief</td>
+                </tr>
+                <tr>
+                  <td>N02 Staircase</td>
+                  <td class="text-slate-500">2700K</td>
+                  <td>2720K</td>
+                  <td class="text-emerald-400">+20</td>
+                  <td>97%</td>
+                  <td>0.11</td>
+                  <td class="text-emerald-400">On brief</td>
+                </tr>
+                <tr>
+                  <td>N03 Dining A</td>
+                  <td class="text-slate-500">2400K</td>
+                  <td>2400K</td>
+                  <td class="text-emerald-400">0</td>
+                  <td>98%</td>
+                  <td>0.09</td>
+                  <td class="text-emerald-400">On brief</td>
+                </tr>
+                <tr>
+                  <td>N04 Dining B</td>
+                  <td class="text-slate-500">2400K</td>
+                  <td>2380K</td>
+                  <td class="text-emerald-400">−20</td>
+                  <td>98%</td>
+                  <td>0.09</td>
+                  <td class="text-emerald-400">Corroborates N03</td>
+                </tr>
+                <tr class="bg-amber-500/5">
+                  <td>N05 Bar</td>
+                  <td class="text-slate-500">2200K</td>
+                  <td>2410K</td>
+                  <td class="text-amber-400">+210</td>
+                  <td class="text-amber-400">81%</td>
+                  <td class="text-amber-400">0.18</td>
+                  <td class="text-amber-400">Drift · LED aging</td>
+                </tr>
+                <tr>
+                  <td>N06 Corr-A</td>
+                  <td class="text-slate-500">3000K</td>
+                  <td>3000K</td>
+                  <td class="text-emerald-400">0</td>
+                  <td>95%</td>
+                  <td>0.13</td>
+                  <td class="text-emerald-400">On brief</td>
+                </tr>
+                <tr>
+                  <td>N07 Corr-B</td>
+                  <td class="text-slate-500">3000K</td>
+                  <td>2980K</td>
+                  <td class="text-emerald-400">−20</td>
+                  <td>96%</td>
+                  <td>0.13</td>
+                  <td class="text-emerald-400">Peer OK</td>
+                </tr>
+                <tr>
+                  <td>N08 Spa</td>
+                  <td class="text-slate-500">2200K</td>
+                  <td>2200K</td>
+                  <td class="text-emerald-400">0</td>
+                  <td>99%</td>
+                  <td>0.08</td>
+                  <td class="text-emerald-400">Signature lock</td>
+                </tr>
+                <tr>
+                  <td>N09 Ballroom</td>
+                  <td class="text-slate-500">3200K</td>
+                  <td>3200K</td>
+                  <td class="text-emerald-400">0</td>
+                  <td>97%</td>
+                  <td>0.14</td>
+                  <td class="text-emerald-400">Event brief</td>
+                </tr>
+                <tr>
+                  <td>N10 Kitchen-adj</td>
+                  <td class="text-slate-500">4000K</td>
+                  <td>4000K</td>
+                  <td class="text-emerald-400">0</td>
+                  <td>94%</td>
+                  <td>0.15</td>
+                  <td class="text-emerald-400">Task lighting</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card rounded-2xl p-5 lg:col-span-4 space-y-4">
+          <div>
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-3">Why This Angle</h3>
+            <p class="text-sm text-slate-300 leading-relaxed">
+              For Taj, light is brand — warm heritage glow in dining, cooler clarity in ballrooms, spa at candle-warm 2200K.
+              A single lux meter cannot prove that. Fleet AS7341 spectra can: each zone’s F1–F8 fingerprint is the designed ambience, continuously verified.
+            </p>
+          </div>
+          <div class="bg-[#161619] border border-amber-500/25 rounded-xl p-4">
+            <p class="text-[10px] mono text-amber-400/90 uppercase tracking-wider">Anomaly isolation</p>
+            <p class="text-sm text-slate-200 mt-2">N05 Bar CCT +210K vs brief; F1–F8 match dropped to 81%; NIR ratio elevated.</p>
+            <p class="text-[11px] text-slate-500 mt-2">
+              N08 Spa holds 2200K brief perfectly — same lamp family, different zone.
+              Drift is fixture-local (aging / driver), not a property scene change. Maintenance ticket before guest complaints.
+            </p>
+          </div>
+          <div>
+            <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-2">Commercial outcomes</h3>
+            <ul class="text-sm text-slate-300 space-y-1.5">
+              <li>• Brand-standard lighting SLA across properties</li>
+              <li>• Predictive lamp / driver replacement</li>
+              <li>• Guest-experience consistency (Instagram-proof ambience)</li>
+              <li>• Secondary: WELL v2 light features when briefing wellness wings</li>
+            </ul>
+          </div>
+          <div class="border-t border-[#1c1c1f] pt-3">
+            <p class="text-[10px] mono text-slate-500">Brand Light Index</p>
+            <div class="flex items-end gap-2 mt-1">
+              <span class="text-4xl font-bold text-amber-300">94%</span>
+              <span class="text-xs text-slate-500 mb-1.5">9 of 10 zones within ±150K</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Spectral fingerprint compare -->
+        <div class="card rounded-2xl p-5 lg:col-span-6">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Spectral Fingerprint · Dining A vs Bar (fleet compare)</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-[11px] mono text-emerald-400 mb-2">N03 Dining A · on brief</p>
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F1</span><div class="flex-1 bar-track"><span style="width:35%;background:#6b21a8"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F2</span><div class="flex-1 bar-track"><span style="width:48%;background:#4338ca"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F3</span><div class="flex-1 bar-track"><span style="width:62%;background:#2563eb"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F4</span><div class="flex-1 bar-track"><span style="width:78%;background:#16a34a"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F5</span><div class="flex-1 bar-track"><span style="width:88%;background:#ca8a04"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F6</span><div class="flex-1 bar-track"><span style="width:95%;background:#ea580c"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F7</span><div class="flex-1 bar-track"><span style="width:92%;background:#dc2626"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F8</span><div class="flex-1 bar-track"><span style="width:70%;background:#9f1239"></span></div></div>
+              </div>
+            </div>
+            <div>
+              <p class="text-[11px] mono text-amber-400 mb-2">N05 Bar · drifted (+NIR)</p>
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F1</span><div class="flex-1 bar-track"><span style="width:28%;background:#6b21a8"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F2</span><div class="flex-1 bar-track"><span style="width:40%;background:#4338ca"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F3</span><div class="flex-1 bar-track"><span style="width:55%;background:#2563eb"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F4</span><div class="flex-1 bar-track"><span style="width:72%;background:#16a34a"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F5</span><div class="flex-1 bar-track"><span style="width:82%;background:#ca8a04"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F6</span><div class="flex-1 bar-track"><span style="width:90%;background:#ea580c"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F7</span><div class="flex-1 bar-track"><span style="width:98%;background:#dc2626"></span></div></div>
+                <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F8</span><div class="flex-1 bar-track"><span style="width:88%;background:#9f1239"></span></div></div>
+              </div>
+            </div>
+          </div>
+          <p class="mt-3 text-[11px] text-slate-500">Warm channels (F7/F8) over-represented vs brief; blue channels compressed — classic phosphor-converted LED aging signature.</p>
+        </div>
+
+        <div class="card rounded-2xl p-5 lg:col-span-6">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Inter-Node Corroboration · Tamper / Fault Evidence</h3>
+          <div class="space-y-3 text-sm">
+            <div class="bg-[#161619] border border-emerald-500/20 rounded-xl p-3 flex gap-3">
+              <span class="mono text-[10px] text-emerald-400 shrink-0 mt-0.5">PASS</span>
+              <div>
+                <p class="text-slate-200">N03 ↔ N04 Dining pair</p>
+                <p class="text-[11px] mono text-slate-500 mt-1">ΔCCT 20K · ΔPM 2 · ΔdBA 1.1 · spectral cosine 0.99</p>
+              </div>
+            </div>
+            <div class="bg-[#161619] border border-emerald-500/20 rounded-xl p-3 flex gap-3">
+              <span class="mono text-[10px] text-emerald-400 shrink-0 mt-0.5">PASS</span>
+              <div>
+                <p class="text-slate-200">N06 ↔ N07 Corridor pair</p>
+                <p class="text-[11px] mono text-slate-500 mt-1">ΔCCT 20K · spectral cosine 0.98 · PM diverge explained by Lobby path</p>
+              </div>
+            </div>
+            <div class="bg-[#161619] border border-amber-500/25 rounded-xl p-3 flex gap-3">
+              <span class="mono text-[10px] text-amber-400 shrink-0 mt-0.5">FLAG</span>
+              <div>
+                <p class="text-slate-200">N05 Bar vs brand brief + Spa peer (same 2200K family)</p>
+                <p class="text-[11px] mono text-slate-500 mt-1">Spectral cosine 0.81 vs N08 · not a sensor fault (neighbors agree on ambient) · fixture drift</p>
+              </div>
+            </div>
+            <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3 flex gap-3">
+              <span class="mono text-[10px] text-slate-500 shrink-0 mt-0.5">NOTE</span>
+              <div>
+                <p class="text-slate-400">If one node reports 90 dBA while all neighbors stay &lt;50, treat as device fault / interference — not a compliance event.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audit trail -->
+    <section class="card rounded-2xl p-5 md:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-4">
+        <div>
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Immutable Audit Trail · Excerpt</h3>
+          <p class="text-xs text-slate-500 mt-1">Hash-chained append-only log · retention 365 days · export CSV / JSON-LD (schema.org / Observation)</p>
+        </div>
+        <span class="text-[10px] mono text-emerald-400">chain tip · a7f3c2…e91b</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[11px] audit mono">
+          <thead>
+            <tr>
+              <th>Seq</th>
+              <th>Timestamp (IST)</th>
+              <th>Node</th>
+              <th>Event</th>
+              <th>Payload</th>
+              <th>Prev hash</th>
+              <th>Hash</th>
+            </tr>
+          </thead>
+          <tbody class="text-slate-300">
+            <tr>
+              <td class="text-slate-500">104892</td>
+              <td>2026-07-21T16:25:02</td>
+              <td>N01</td>
+              <td class="text-amber-400">INGRESS_PATH</td>
+              <td>pm25=42 path=Lobby→CorrA→Stairs</td>
+              <td class="text-slate-600">…b4e1</td>
+              <td class="text-slate-500">…c8a0</td>
+            </tr>
+            <tr>
+              <td class="text-slate-500">104893</td>
+              <td>2026-07-21T16:25:02</td>
+              <td>FLEET</td>
+              <td>ROLLUP</td>
+              <td>med_pm=18 med_dba=49.8 bli=94</td>
+              <td class="text-slate-600">…c8a0</td>
+              <td class="text-slate-500">…91df</td>
+            </tr>
+            <tr>
+              <td class="text-slate-500">104894</td>
+              <td>2026-07-21T16:26:11</td>
+              <td>N05</td>
+              <td class="text-amber-400">SPECTRAL_DRIFT</td>
+              <td>cct=2410 brief=2200 match=81%</td>
+              <td class="text-slate-600">…91df</td>
+              <td class="text-slate-500">…3e77</td>
+            </tr>
+            <tr>
+              <td class="text-slate-500">104895</td>
+              <td>2026-07-21T16:26:11</td>
+              <td>N03↔N04</td>
+              <td class="text-emerald-400">CORROBORATE</td>
+              <td>cosine=0.99 Δcct=20</td>
+              <td class="text-slate-600">…3e77</td>
+              <td class="text-slate-500">…a12c</td>
+            </tr>
+            <tr>
+              <td class="text-slate-500">104896</td>
+              <td>2026-07-21T22:18:44</td>
+              <td>N10</td>
+              <td class="text-rose-400">NOISE_EXCEED</td>
+              <td>dba=68.4 limit=55 night σ=+3.7</td>
+              <td class="text-slate-600">…a12c</td>
+              <td class="text-slate-500">…e91b</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-3 text-[11px]">
+        <span class="card rounded-md px-3 py-1.5 text-slate-400 mono">Retention: 365d rolling · WORM export weekly</span>
+        <span class="card rounded-md px-3 py-1.5 text-slate-400 mono">Format: asai-audit-v1.jsonld · RFC 3339 timestamps</span>
+        <span class="card rounded-md px-3 py-1.5 text-slate-400 mono">Custodian: ASAI · Taj Delhi property ops</span>
+      </div>
+    </section>
+
+    <footer class="border-t border-[#1c1c1f] pt-6 pb-10 text-center space-y-2">
+      <p class="text-[11px] mono text-slate-500">
+        ASAI · Taj Delhi · Fleet Intelligence Concept · static mockup · no live RTDB
+      </p>
+      <p class="text-[10px] text-slate-600 max-w-2xl mx-auto">
+        Demonstrates value that exists only when nodes are networked: cross-zone gradients, ingress propagation,
+        statutory noise isolation, brand spectral consistency, and peer corroboration for audit integrity.
+      </p>
+    </footer>
+
+  </main>
+</body>
+</html>

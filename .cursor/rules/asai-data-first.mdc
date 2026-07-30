@@ -1,0 +1,13 @@
+---
+description: ASAI never compromises full data capture and logging
+alwaysApply: true
+---
+
+# ASAI — data is non-negotiable
+
+ASAI is about **all** data, not only alerts or “aberrant” readings.
+
+- Never remove, disable, thin, sample-down, or skip history/logging/telemetry features to improve WiFi, cost, latency, or convenience without **explicit user approval first**.
+- Every device measurement that is published live must also be retained in history (e.g. RTDB `/live` and `/log`) unless the user decides otherwise.
+- Prefer fixing reliability around full data (retry, queue, reconnect) over dropping data.
+- Do not silently change data retention, publish cadence for the sake of dropping logs, or alert-only architectures.

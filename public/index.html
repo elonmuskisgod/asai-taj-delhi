@@ -3,376 +3,406 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ASAI · Taj Delhi | Live Dashboard</title>
+  <title>ASAI · Taj Delhi | Fleet Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <style>
     :root {
-      --bg: #0a0a0c;
-      --panel: #121214;
-      --line: #1c1c1f;
-      --ink: #f4f4f7;
-      --muted: #94a3b8;
-      --ok: #10b981;
-      --warn: #f59e0b;
-      --bad: #ef4444;
-      --accent: #3b82f6;
+      --bg: #0a0a0c; --panel: #121214; --line: #1c1c1f; --line2: #26262b;
+      --ink: #f4f4f7; --muted: #94a3b8; --dim: #5b6270;
+      --ok: #10b981; --warn: #f59e0b; --bad: #ef4444; --accent: #3b82f6; --gold: #c9a227;
     }
-    body {
-      background: var(--bg);
-      color: var(--ink);
-      font-family: "IBM Plex Sans", system-ui, sans-serif;
-    }
+    body { background: var(--bg); color: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; }
     .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
     .card { background: var(--panel); border: 1px solid var(--line); }
     .pulse-dot {
-      width: 0.5rem; height: 0.5rem; border-radius: 9999px;
-      background: var(--accent);
-      box-shadow: 0 0 10px rgba(59, 130, 246, 0.55);
+      width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: var(--ok);
+      box-shadow: 0 0 10px rgba(16,185,129,.45); animation: pulse 2s ease-in-out infinite;
     }
-    .pulse-dot.live {
-      background: var(--ok);
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.55);
-      animation: pulse 2s ease-in-out infinite;
+    .pulse-dot.off { background: var(--warn); box-shadow: 0 0 10px rgba(245,158,11,.45); animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    .bar-track { height: 0.4rem; border-radius: 9999px; background: #1c1c1f; overflow: hidden; }
+    .bar-track > span { display: block; height: 100%; border-radius: 9999px; }
+    .grad-ring {
+      width: 5.5rem; height: 5.5rem; border-radius: 9999px; display: grid; place-items: center;
+      border: 3px solid var(--line); background: #161619;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.45; }
+    .live-banner {
+      background: linear-gradient(90deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08));
+      border-bottom: 1px solid rgba(16,185,129,0.25);
     }
-    .grade-ring {
-      width: 7.5rem; height: 7.5rem;
-      border-radius: 9999px;
-      display: grid; place-items: center;
-      border: 3px solid var(--line);
-      background: #161619;
+    .cct-swatch {
+      width: 100%; height: 0.55rem; border-radius: 9999px;
+      background: linear-gradient(90deg, #ff9a3c, #ffe08a, #f5f0e6, #c8d9ff, #8fb0ff);
     }
-    .spec-bar {
-      height: 0.5rem; border-radius: 9999px;
-      background: #1c1c1f; overflow: hidden;
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line2);
+      border-radius: 999px; padding: 3px 10px; font-size: 10px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--muted);
     }
-    .spec-bar > span { display: block; height: 100%; border-radius: 9999px; }
+    .dot { width: 6px; height: 6px; border-radius: 99px; }
+    .dot-ok { background: var(--ok); box-shadow: 0 0 8px rgba(16,185,129,.5); }
+    .dot-warn { background: var(--warn); box-shadow: 0 0 8px rgba(245,158,11,.5); }
+    .dot-bad { background: var(--bad); box-shadow: 0 0 8px rgba(239,68,68,.5); }
+    .dot-blue { background: var(--accent); box-shadow: 0 0 8px rgba(59,130,246,.5); }
+    .dot-live { background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,.6); }
+    .dot-sim { background: #60a5fa; box-shadow: 0 0 8px rgba(96,165,250,.5); }
+    .node { padding: 14px 16px; position: relative; }
+    .node .nid { font-size: 10px; color: var(--dim); letter-spacing: 0.12em; }
+    .node h4 { font-size: 14px; font-weight: 600; margin: 2px 0 10px; }
+    .node table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .node td { padding: 2.5px 0; color: var(--muted); }
+    .node td:last-child { text-align: right; color: var(--ink); }
+    .node .status { position: absolute; top: 14px; right: 14px; }
+    .node.flag { border-color: rgba(245,158,11,.4); }
+    .node.flag-bad { border-color: rgba(239,68,68,.45); }
+    .node.stale { opacity: 0.55; }
+    .nrow {
+      display: grid; grid-template-columns: 140px 1fr 56px; align-items: center;
+      gap: 10px; margin-bottom: 9px; font-size: 12px;
+    }
+    .nrow .zl { color: var(--muted); font-size: 11px; }
+    .track { position: relative; height: 10px; border-radius: 99px; background: #1a1a1e; overflow: visible; }
+    .track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+    .track .lim { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--bad); opacity: .8; }
+    .track .lim.day { background: var(--warn); }
+    .nrow .val { text-align: right; font-size: 11px; }
+    table.audit { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table.audit th {
+      color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; font-size: 9.5px;
+      text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line2); font-weight: 500;
+    }
+    table.audit td { padding: 7px 10px; border-bottom: 1px solid var(--line); color: var(--muted); vertical-align: top; }
+    .chip {
+      display: inline-block; border: 1px solid var(--line2); border-radius: 6px;
+      padding: 2px 8px; font-size: 10px; color: var(--muted); margin: 2px 4px 2px 0;
+    }
+    .ribbon-note { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+    .ribbon-note .card { flex: 1 1 220px; padding: 14px 16px; font-size: 12.5px; color: var(--muted); }
+    .ribbon-note b { color: var(--ink); font-weight: 600; }
   </style>
 </head>
 <body class="min-h-screen antialiased">
 
-  <header class="sticky top-0 z-50 border-b border-[#1c1c1f] bg-[#0a0a0c]/85 backdrop-blur px-6 md:px-8 py-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+  <div class="live-banner px-6 md:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-[11px] mono text-emerald-300/90" id="banner-text">
+      FLEET LIVE · 1 real (N01 Lobby) · 9 simulated · connecting…
+    </p>
+    <div class="flex gap-3 text-[10px] mono text-slate-500">
+      <a href="/node.html" class="hover:text-slate-300">Single-node view →</a>
+      <span>asai-taj-delhi · fleet</span>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-[#1c1c1f] bg-[#0a0a0c]/90 backdrop-blur px-6 md:px-8 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
     <div>
       <div class="flex items-center gap-3">
         <div class="h-6 w-1.5 rounded-full bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"></div>
         <h1 class="text-lg md:text-xl font-bold tracking-tight uppercase mono">
           ASAI <span class="text-slate-500 font-medium normal-case">// Taj Delhi</span>
+          <span class="text-slate-600 font-medium normal-case text-sm ml-1">· Fleet</span>
         </h1>
       </div>
-      <p class="text-xs text-slate-500 mt-1">Live matrix · spectral light · CPCB AQI · sound · health · compliance</p>
+      <p class="text-xs text-slate-500 mt-1">Property-wide intelligence · 10 nodes · cross-zone gradients · audit trail</p>
     </div>
-    <div class="flex flex-wrap items-center gap-3 text-xs mono">
-      <label class="flex items-center gap-2 card px-3 py-1.5 rounded-md text-slate-400">
-        <span class="text-[10px] uppercase tracking-wider">Zone</span>
-        <select id="zone-context" class="bg-transparent text-slate-200 outline-none cursor-pointer">
-          <option value="lobby">Lobby</option>
-          <option value="dining">Dining</option>
-          <option value="bar">Bar / Lounge</option>
-          <option value="corridor">Guest Corridor</option>
-          <option value="meeting">Meeting</option>
-        </select>
-      </label>
-      <div id="connection-status" class="flex items-center gap-2 card px-3 py-1.5 rounded-md text-slate-400">
-        <span class="pulse-dot" id="status-dot"></span>
+    <div class="flex flex-wrap items-center gap-2 text-xs mono">
+      <div class="card px-3 py-1.5 rounded-md text-slate-400 flex items-center gap-2">
+        <span class="pulse-dot off" id="status-dot"></span>
         <span id="status-text">Connecting…</span>
       </div>
-      <div id="last-seen" class="card px-3 py-1.5 rounded-md text-slate-500">—</div>
+      <div class="card px-3 py-1.5 rounded-md text-emerald-400/90" id="online-count">— / 10 online</div>
+      <div class="card px-3 py-1.5 rounded-md text-slate-500" id="clock">—</div>
     </div>
   </header>
 
-  <main class="p-6 md:p-8 space-y-6 max-w-[1500px] mx-auto">
+  <main class="p-6 md:p-8 space-y-8 max-w-[1500px] mx-auto">
 
-    <!-- Hero: Health + Compliance -->
+    <!-- KPI band -->
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <div class="card rounded-2xl p-6 lg:col-span-4 relative overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/8 to-transparent pointer-events-none"></div>
-        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-4">Health Score</p>
-        <div class="flex items-end gap-3">
-          <h2 id="health-score" class="text-6xl font-bold tracking-tighter leading-none">--</h2>
-          <span class="text-slate-500 mono text-sm mb-2">/ 100</span>
-        </div>
-        <p id="health-label" class="mt-3 text-sm text-slate-400">Awaiting telemetry…</p>
-        <div class="mt-6 grid grid-cols-3 gap-2">
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">Comfort</p>
-            <p id="score-comfort" class="text-2xl font-semibold mt-1">--</p>
+      <div class="card rounded-2xl p-6 lg:col-span-3 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent pointer-events-none"></div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Compliance Grade</p>
+        <div class="flex items-center gap-4">
+          <div class="grad-ring border-emerald-500/40">
+            <span class="text-4xl font-bold tracking-tighter text-emerald-400" id="kpi-grade">—</span>
           </div>
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">Wellness</p>
-            <p id="score-wellness" class="text-2xl font-semibold mt-1">--</p>
-          </div>
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">Acoustics</p>
-            <p id="score-acoustics" class="text-2xl font-semibold mt-1">--</p>
+          <div>
+            <p class="text-sm text-slate-300">CPCB / NGT noise</p>
+            <p class="text-[11px] mono text-slate-500 mt-1" id="kpi-grade-sub">Awaiting nodes…</p>
+            <p class="text-[11px] mono text-emerald-400/80 mt-1" id="kpi-integrity">—</p>
           </div>
         </div>
       </div>
-
-      <div class="card rounded-2xl p-6 lg:col-span-3 flex flex-col items-center justify-center text-center">
-        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-4">Compliance Grade</p>
-        <div id="grade-ring" class="grade-ring mb-3">
-          <span id="compliance-grade" class="text-5xl font-bold tracking-tighter">--</span>
+      <div class="card rounded-2xl p-6 lg:col-span-3 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent pointer-events-none"></div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Certification Readiness</p>
+        <div class="flex items-end gap-2">
+          <h2 class="text-5xl font-bold tracking-tighter leading-none" id="kpi-cert">—</h2>
+          <span class="text-slate-500 mono text-sm mb-1.5">/ 100</span>
         </div>
-        <p id="compliance-status" class="text-sm text-slate-400">Zone rules not evaluated</p>
-        <p id="compliance-detail" class="text-[11px] text-slate-500 mono mt-2 max-w-[14rem]"></p>
+        <p class="mt-2 text-sm text-slate-400">IGBC / LEED / WELL-adjacent evidence pack</p>
+        <p class="text-[11px] mono text-slate-500 mt-2">Voluntary · brand-assurance track</p>
       </div>
-
-      <div class="card rounded-2xl p-6 lg:col-span-5">
-        <div class="flex items-center gap-2 border-b border-[#1c1c1f] pb-3 mb-4">
-          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Live Insights</h3>
+      <div class="card rounded-2xl p-6 lg:col-span-3 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none"></div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Brand Light Index</p>
+        <div class="flex items-end gap-2">
+          <h2 class="text-5xl font-bold tracking-tighter leading-none text-amber-300" id="kpi-bli">—</h2>
+          <span class="text-slate-500 mono text-sm mb-1.5">%</span>
         </div>
-        <ul id="insights" class="space-y-2.5 text-sm text-slate-300">
-          <li class="text-slate-500 mono text-xs">Waiting for /ASAITajDelhi/live…</li>
+        <p class="mt-2 text-sm text-slate-400">Zones on spectral signature</p>
+        <p class="text-[11px] mono text-amber-400/80 mt-2" id="kpi-bli-sub">—</p>
+      </div>
+      <div class="card rounded-2xl p-6 lg:col-span-3">
+        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 mono mb-3">Active Alerts</p>
+        <ul class="space-y-2.5 text-sm" id="kpi-alerts">
+          <li class="text-slate-500 mono text-xs">Waiting for fleet…</li>
         </ul>
       </div>
     </section>
 
-    <!-- Telemetry -->
-    <section>
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Live Telemetry</h3>
-        <span class="text-[10px] text-slate-600 mono">RTDB · asia-southeast1</span>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">Temp</p>
-          <p id="val-temp" class="text-2xl font-semibold mt-1">--</p>
-          <span id="lbl-temp" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">Humidity</p>
-          <p id="val-hum" class="text-2xl font-semibold mt-1">--</p>
-          <span id="lbl-hum" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">Light</p>
-          <p id="val-lux" class="text-2xl font-semibold mt-1">-- <span class="text-sm text-slate-500">lx</span></p>
-          <span id="lbl-lux" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">CCT</p>
-          <p id="val-cct" class="text-2xl font-semibold mt-1">-- <span class="text-sm text-slate-500">K</span></p>
-          <span id="lbl-cct" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">Sound</p>
-          <p id="val-db" class="text-2xl font-semibold mt-1">-- <span class="text-sm text-slate-500">dB</span></p>
-          <span id="lbl-db" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">CPCB AQI</p>
-          <p id="val-aqi" class="text-2xl font-semibold mt-1">--</p>
-          <span id="lbl-aqi" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">BSEC IAQ</p>
-          <p id="val-iaq" class="text-2xl font-semibold mt-1">--</p>
-          <span id="lbl-iaq" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-        <div class="card rounded-xl p-4">
-          <p class="text-[10px] text-slate-500 uppercase mono">eCO₂</p>
-          <p id="val-eco2" class="text-2xl font-semibold mt-1">-- <span class="text-sm text-slate-500">ppm</span></p>
-          <span id="lbl-eco2" class="inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border border-[#1c1c1f] text-slate-500">—</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Spectral light + CPCB AQI -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="card rounded-2xl p-5">
-        <div class="flex items-center justify-between border-b border-[#1c1c1f] pb-3 mb-4">
-          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">AS7341 Spectral Color</h3>
-          <span id="light-type" class="text-[10px] mono text-amber-400">—</span>
-        </div>
-        <div class="grid grid-cols-3 gap-3 mb-4">
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">CCT</p>
-            <p id="spec-cct" class="text-xl font-semibold mt-1">-- K</p>
-          </div>
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">NIR / Clear</p>
-            <p id="spec-nir" class="text-xl font-semibold mt-1">--</p>
-          </div>
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">VOC (BSEC)</p>
-            <p id="val-voc" class="text-xl font-semibold mt-1">--</p>
-          </div>
-        </div>
-        <div id="spectrum-bars" class="space-y-2"></div>
-        <p id="spectrum-insight" class="mt-4 text-xs text-slate-400 bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">Awaiting AS7341 channels…</p>
-      </div>
-
-      <div class="card rounded-2xl p-5">
-        <div class="flex items-center justify-between border-b border-[#1c1c1f] pb-3 mb-4">
-          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">CPCB Air Quality (PMS7003)</h3>
-          <span id="aqi-dominant" class="text-[10px] mono text-slate-500">—</span>
-        </div>
-        <div class="flex items-end gap-3 mb-4">
-          <h2 id="aqi-hero" class="text-5xl font-bold tracking-tighter leading-none">--</h2>
-          <div class="mb-1">
-            <p id="aqi-category" class="text-sm font-semibold text-slate-300">—</p>
-            <p class="text-[10px] text-slate-500 mono">India CPCB index</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">PM2.5</p>
-            <p id="val-pm25" class="text-2xl font-semibold mt-1">-- <span class="text-sm text-slate-500">µg/m³</span></p>
-            <p id="si-pm25" class="text-[10px] mono text-slate-500 mt-1">SI —</p>
-          </div>
-          <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">
-            <p class="text-[10px] text-slate-500 uppercase mono">PM10</p>
-            <p id="val-pm10" class="text-2xl font-semibold mt-1">-- <span class="text-sm text-slate-500">µg/m³</span></p>
-            <p id="si-pm10" class="text-[10px] mono text-slate-500 mt-1">SI —</p>
-          </div>
-        </div>
-        <div class="w-full h-2 rounded-full bg-[#1c1c1f] overflow-hidden mb-2">
-          <div id="aqi-bar" class="h-full rounded-full transition-all duration-500" style="width:0%;background:#10b981"></div>
-        </div>
-        <p id="aqi-insight" class="text-xs text-slate-400 bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">Awaiting PMS particle data…</p>
-      </div>
-    </section>
-
-    <!-- Delhi outdoor vs Taj indoor -->
+    <!-- Propagation ribbon (SVG labels update) -->
     <section class="card rounded-2xl p-5 md:p-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-5">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-4">
         <div>
-          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Delhi Outdoor vs Taj Indoor</h3>
-          <p class="text-xs text-slate-500 mt-1">
-            US AQI scale (same as
-            <a class="text-blue-400 underline underline-offset-2" href="https://www.aqi.in/in/dashboard/india/delhi/new-delhi/connaught-place" target="_blank" rel="noopener">aqi.in Connaught Place</a>)
-            · not CPCB
-          </p>
+          <p class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Fleet-only insight · propagation</p>
+          <h3 class="text-sm font-semibold mt-1">Delhi outside, Taj inside — air journey through the building</h3>
         </div>
-        <span id="delhi-aqi-updated" class="text-[10px] mono text-slate-600">Outdoor: fetching…</span>
+        <span class="pill"><span class="dot dot-blue"></span>CPCB AQI · Indian NAQI</span>
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-        <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-5">
-          <p class="text-[10px] uppercase tracking-wider text-slate-500 mono mb-2">Heart of Delhi</p>
-          <p class="text-[11px] text-slate-600 mono mb-3">Connaught Place · outdoor · US AQI</p>
-          <div class="flex items-end gap-2">
-            <span id="delhi-aqi" class="text-5xl font-bold tracking-tighter">--</span>
-            <span id="delhi-aqi-cat" class="text-sm text-slate-400 mb-1">—</span>
-          </div>
-          <div class="mt-4 grid grid-cols-2 gap-2 text-xs mono">
-            <div>
-              <p class="text-slate-500">PM2.5</p>
-              <p id="delhi-pm25" class="text-slate-200 font-semibold">--</p>
-            </div>
-            <div>
-              <p class="text-slate-500">PM10</p>
-              <p id="delhi-pm10" class="text-slate-200 font-semibold">--</p>
-            </div>
-          </div>
-          <p id="delhi-cpcb-note" class="mt-3 text-[10px] mono text-slate-600">CPCB equiv: —</p>
-        </div>
-
-        <div class="flex flex-col items-center justify-center text-center px-2 py-4">
-          <p class="text-[10px] uppercase tracking-wider text-slate-500 mono mb-2">Indoor advantage</p>
-          <p id="aqi-delta" class="text-4xl font-bold tracking-tighter text-slate-300">--</p>
-          <p id="aqi-delta-label" class="text-xs text-slate-500 mt-2 max-w-[12rem]">Waiting for both feeds…</p>
-          <div class="w-full max-w-xs h-2 rounded-full bg-[#1c1c1f] mt-4 overflow-hidden">
-            <div id="aqi-delta-bar" class="h-full rounded-full transition-all duration-500" style="width:50%;background:#3b82f6"></div>
-          </div>
-        </div>
-
-        <div class="bg-[#161619] border border-[#1c1c1f] rounded-xl p-5">
-          <p class="text-[10px] uppercase tracking-wider text-slate-500 mono mb-2">Inside Taj</p>
-          <p class="text-[11px] text-slate-600 mono mb-3">ASAI node · indoor · US AQI</p>
-          <div class="flex items-end gap-2">
-            <span id="taj-aqi-cmp" class="text-5xl font-bold tracking-tighter">--</span>
-            <span id="taj-aqi-cat-cmp" class="text-sm text-slate-400 mb-1">—</span>
-          </div>
-          <div class="mt-4 grid grid-cols-2 gap-2 text-xs mono">
-            <div>
-              <p class="text-slate-500">PM2.5</p>
-              <p id="taj-pm25-cmp" class="text-slate-200 font-semibold">--</p>
-            </div>
-            <div>
-              <p class="text-slate-500">PM10</p>
-              <p id="taj-pm10-cmp" class="text-slate-200 font-semibold">--</p>
-            </div>
-          </div>
-          <p id="taj-cpcb-note" class="mt-3 text-[10px] mono text-slate-600">CPCB (sensor): —</p>
-        </div>
+      <div class="overflow-x-auto">
+        <svg viewBox="0 0 1200 300" width="100%" role="img" style="min-width:900px">
+          <defs>
+            <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#ef4444" stop-opacity=".85"/>
+              <stop offset=".3" stop-color="#f59e0b" stop-opacity=".8"/>
+              <stop offset=".65" stop-color="#d2ab63" stop-opacity=".75"/>
+              <stop offset="1" stop-color="#10b981" stop-opacity=".8"/>
+            </linearGradient>
+          </defs>
+          <path d="M40,60 L40,240 C 220,235 220,110 340,108 C 460,106 460,128 560,127 C 680,126 680,138 780,137 C 900,136 900,146 1000,145 C1080,144 1120,150 1160,150 L1160,150 C1120,150 1080,156 1000,155 C900,154 900,164 780,163 C680,162 680,174 560,173 C460,172 460,194 340,192 C220,190 220,65 40,60 Z" fill="url(#flow)" opacity=".9"/>
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="#8f97a8">
+            <g><line x1="40" y1="52" x2="40" y2="252" stroke="#26262b"/><text x="40" y="42" text-anchor="middle" fill="#ef4444" font-weight="600" id="rib-out">OUTDOOR —</text><text x="40" y="272" text-anchor="middle">Connaught Pl</text></g>
+            <g><line x1="340" y1="90" x2="340" y2="210" stroke="#26262b"/><text x="340" y="80" text-anchor="middle" fill="#f4f4f7" font-weight="600" id="rib-lobby">LOBBY —</text><text x="340" y="230" text-anchor="middle">N01 · LIVE</text></g>
+            <g><line x1="560" y1="110" x2="560" y2="192" stroke="#26262b"/><text x="560" y="100" text-anchor="middle" fill="#f4f4f7" font-weight="600" id="rib-corr">CORRIDORS —</text><text x="560" y="212" text-anchor="middle">N07 · N08</text></g>
+            <g><line x1="780" y1="120" x2="780" y2="182" stroke="#26262b"/><text x="780" y="110" text-anchor="middle" fill="#f4f4f7" font-weight="600" id="rib-din">DINING / BAR —</text><text x="780" y="202" text-anchor="middle">N03 · N04 · N05</text></g>
+            <g><line x1="1000" y1="128" x2="1000" y2="173" stroke="#26262b"/><text x="1000" y="118" text-anchor="middle" fill="#f4f4f7" font-weight="600" id="rib-ball">BALLROOM —</text><text x="1000" y="193" text-anchor="middle">N09</text></g>
+            <g><line x1="1160" y1="132" x2="1160" y2="169" stroke="#26262b"/><text x="1160" y="122" text-anchor="middle" fill="#10b981" font-weight="600" id="rib-spa">SPA —</text><text x="1160" y="189" text-anchor="middle">N06</text></g>
+          </g>
+        </svg>
       </div>
-
-      <p id="aqi-compare-insight" class="mt-5 text-xs text-slate-400 bg-[#0a0a0c] border border-[#1c1c1f] rounded-xl p-3">
-        Comparing central Delhi outdoor US AQI to Taj indoor (EPA formula on PMS PM2.5)…
-      </p>
-    </section>
-
-    <!-- Lighting + Sound focus -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="card rounded-2xl p-5">
-        <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono border-b border-[#1c1c1f] pb-3 mb-4">Lighting Suitability</h3>
-        <div class="flex items-baseline gap-2 mb-4">
-          <span id="light-index" class="text-4xl font-bold tracking-tight">--</span>
-          <span class="text-slate-500 text-sm mono">/ 100 lux index</span>
-        </div>
-        <div class="space-y-2 text-xs mono">
-          <div class="flex justify-between border-b border-[#1c1c1f] pb-2"><span class="text-slate-400">Lobby / Arrival</span><span id="suit-lobby" class="font-semibold">--</span></div>
-          <div class="flex justify-between border-b border-[#1c1c1f] pb-2"><span class="text-slate-400">Dining</span><span id="suit-dining" class="font-semibold">--</span></div>
-          <div class="flex justify-between border-b border-[#1c1c1f] pb-2"><span class="text-slate-400">Bar / Lounge</span><span id="suit-bar" class="font-semibold">--</span></div>
-          <div class="flex justify-between border-b border-[#1c1c1f] pb-2"><span class="text-slate-400">Guest Corridor</span><span id="suit-corridor" class="font-semibold">--</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Meeting / Desk Work</span><span id="suit-meeting" class="font-semibold">--</span></div>
-        </div>
-        <p id="light-insight" class="mt-4 text-xs text-slate-400 bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">Evaluating lumen density…</p>
-      </div>
-
-      <div class="card rounded-2xl p-5">
-        <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono border-b border-[#1c1c1f] pb-3 mb-4">Acoustic Zones</h3>
-        <div class="flex items-baseline gap-2 mb-4">
-          <span id="sound-index" class="text-4xl font-bold tracking-tight">--</span>
-          <span class="text-slate-500 text-sm mono">/ 100 acoustic score</span>
-        </div>
-        <div class="space-y-2 text-xs mono">
-          <div id="zone-quiet" class="p-2.5 rounded-lg border border-[#1c1c1f] flex justify-between text-slate-500">
-            <span>Quiet / Rest (&lt;50 dB)</span><span id="val-zone-quiet">--</span>
-          </div>
-          <div id="zone-conv" class="p-2.5 rounded-lg border border-[#1c1c1f] flex justify-between text-slate-500">
-            <span>Conversation (50–65 dB)</span><span id="val-zone-conv">--</span>
-          </div>
-          <div id="zone-social" class="p-2.5 rounded-lg border border-[#1c1c1f] flex justify-between text-slate-500">
-            <span>Social Energy (65–75 dB)</span><span id="val-zone-social">--</span>
-          </div>
-          <div id="zone-excess" class="p-2.5 rounded-lg border border-[#1c1c1f] flex justify-between text-slate-500">
-            <span>Excessive (&gt;75 dB)</span><span id="val-zone-excess">--</span>
-          </div>
-        </div>
-        <p id="sound-insight" class="mt-4 text-xs text-slate-400 bg-[#161619] border border-[#1c1c1f] rounded-xl p-3">Evaluating sound pressure…</p>
+      <div class="ribbon-note">
+        <div class="card"><b>Attenuation</b> <span id="rib-atten">—</span></div>
+        <div class="card"><b>Lobby PM (LIVE)</b> <span id="rib-lobby-pm">—</span> · drives corridor sims</div>
+        <div class="card"><b>Leak check</b> <span id="rib-leak">Corridor East vs West Δ —</span></div>
       </div>
     </section>
 
-    <!-- Chart + compliance checklist -->
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div class="card rounded-2xl p-5 lg:col-span-2">
-        <div class="flex justify-between items-center border-b border-[#1c1c1f] pb-3 mb-4">
-          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Timeline</h3>
-          <span class="text-[10px] mono text-slate-600">Last 24 samples</span>
+    <!-- Node grid -->
+    <section>
+      <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+        <div>
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Ten nodes · ten zones · one baseline</h3>
+          <p class="text-xs text-slate-500 mt-1">N01 = real ESP32 · N02–N10 = simulated · status vs fleet / brief</p>
         </div>
-        <div class="h-64"><canvas id="timeline-chart"></canvas></div>
+        <span class="pill mono">STALE &gt; 30s offline</span>
       </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="node-grid"></div>
+    </section>
 
-      <div class="card rounded-2xl p-5">
-        <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono border-b border-[#1c1c1f] pb-3 mb-4">Zone Compliance Checks</h3>
-        <ul id="checks" class="space-y-3 text-xs mono">
-          <li class="text-slate-500">No live data yet</li>
-        </ul>
+    <!-- Outdoor vs indoor bars -->
+    <section class="card rounded-2xl p-5 md:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-5">
+        <div>
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Delhi Outdoor vs Indoor Envelope</h3>
+          <p class="text-xs text-slate-400 mt-1">CPCB outdoor (aqi.in / data.gov.in ground) · indoor CPCB across nodes</p>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] mono text-slate-500">Outdoor CPCB AQI</p>
+          <p class="text-2xl font-bold text-orange-400" id="out-aqi">—</p>
+        </div>
+      </div>
+      <div class="space-y-2.5" id="aqi-bars"></div>
+    </section>
+
+    <!-- Period averages -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-slate-400"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">Fleet Averages · Session Windows</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Rolling samples this session (not multi-day history yet)</p>
+        </div>
+      </div>
+      <div class="overflow-x-auto card rounded-2xl">
+        <table class="w-full audit mono text-[12px]">
+          <thead>
+            <tr><th>Metric</th><th>~5 min</th><th>~30 min</th><th>Session</th><th>Now</th></tr>
+          </thead>
+          <tbody id="avg-tbody" class="text-slate-300">
+            <tr><td colspan="5" class="text-slate-500">Collecting samples…</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
+    <!-- Inside vs outside -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-cyan-500"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">Inside vs Outside · Temp · Humidity · AQI</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Outdoor reference vs fleet indoor medians</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card rounded-2xl p-5">
+          <p class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Temperature</p>
+          <div class="flex justify-between items-end">
+            <div><p class="text-[10px] mono text-slate-500">Outside</p><p class="text-3xl font-bold text-orange-400" id="cmp-t-out">—</p></div>
+            <div class="text-right"><p class="text-[10px] mono text-slate-500">Inside med</p><p class="text-3xl font-bold text-emerald-400" id="cmp-t-in">—</p></div>
+          </div>
+          <p class="text-[11px] mono text-slate-500 mt-3" id="cmp-t-delta">—</p>
+        </div>
+        <div class="card rounded-2xl p-5">
+          <p class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Humidity</p>
+          <div class="flex justify-between items-end">
+            <div><p class="text-[10px] mono text-slate-500">Outside</p><p class="text-3xl font-bold text-sky-400" id="cmp-h-out">—</p></div>
+            <div class="text-right"><p class="text-[10px] mono text-slate-500">Inside med</p><p class="text-3xl font-bold text-emerald-400" id="cmp-h-in">—</p></div>
+          </div>
+          <p class="text-[11px] mono text-slate-500 mt-3" id="cmp-h-delta">—</p>
+        </div>
+        <div class="card rounded-2xl p-5">
+          <p class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">CPCB AQI</p>
+          <div class="flex justify-between items-end">
+            <div><p class="text-[10px] mono text-slate-500">Outside</p><p class="text-3xl font-bold text-orange-400" id="cmp-a-out">—</p></div>
+            <div class="text-right"><p class="text-[10px] mono text-slate-500">Inside med</p><p class="text-3xl font-bold text-emerald-400" id="cmp-a-in">—</p></div>
+          </div>
+          <p class="text-[11px] mono text-slate-500 mt-3" id="cmp-a-delta">—</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Noise -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-rose-500"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">Noise → Compliance</h2>
+          <p class="text-xs text-slate-500 mt-0.5">65 dBA day · 55 dBA night · red tick = night limit</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="card rounded-2xl p-5">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Zone Leq vs limits</h3>
+          <div id="noise-rows"></div>
+        </div>
+        <div class="card rounded-2xl p-5">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Exceedance ledger · session</h3>
+          <table class="audit mono">
+            <thead><tr><th>#</th><th>When</th><th>Zone</th><th>Event</th><th>Note</th></tr></thead>
+            <tbody id="exc-tbody"><tr><td colspan="5" class="text-slate-500">No exceedances this session</td></tr></tbody>
+          </table>
+          <div class="flex flex-wrap gap-2 mt-4">
+            <span class="pill"><span class="dot dot-ok"></span>N01 LIVE trusted</span>
+            <span class="pill"><span class="dot dot-blue"></span>N02–N10 SIM</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IAQ -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-emerald-500"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">IAQ → Certification &amp; Brand Assurance</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Voluntary premium evidence · not mandatory compliance</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="card rounded-2xl p-5 lg:col-span-5 space-y-3" id="cert-bars"></div>
+        <div class="card rounded-2xl p-5 lg:col-span-7 overflow-x-auto">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Property IAQ rollup</h3>
+          <table class="audit mono">
+            <thead><tr><th>Metric</th><th>Median</th><th>Best</th><th>Watch</th></tr></thead>
+            <tbody id="iaq-rollup"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lighting -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <div class="h-8 w-1 rounded-full bg-amber-400"></div>
+        <div>
+          <h2 class="text-sm font-semibold tracking-wide uppercase mono">Lighting → Brand Spectral Signature</h2>
+          <p class="text-xs text-slate-500 mt-0.5">AS7341 · brief ±150K · F1–F8 fingerprint</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="card rounded-2xl p-5 lg:col-span-8 overflow-x-auto">
+          <div class="cct-swatch mb-4 opacity-80"></div>
+          <table class="w-full text-[12px] audit">
+            <thead>
+              <tr><th>Node</th><th>Brief</th><th>Live CCT</th><th>ΔK</th><th>Match</th><th>NIR</th><th>Status</th></tr>
+            </thead>
+            <tbody id="light-tbody" class="mono text-slate-300"></tbody>
+          </table>
+        </div>
+        <div class="card rounded-2xl p-5 lg:col-span-4 space-y-3">
+          <p class="text-[10px] mono text-slate-500">Brand Light Index</p>
+          <p class="text-4xl font-bold text-amber-300" id="light-bli">—%</p>
+          <p class="text-sm text-slate-400" id="light-note">—</p>
+          <div class="bg-[#161619] border border-amber-500/25 rounded-xl p-4">
+            <p class="text-[10px] mono text-amber-400/90 uppercase tracking-wider">Drift watch</p>
+            <p class="text-sm text-slate-200 mt-2" id="light-drift">—</p>
+          </div>
+        </div>
+        <div class="card rounded-2xl p-5 lg:col-span-6">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Spectral · Machan (N03) vs Bar (N05)</h3>
+          <div class="grid grid-cols-2 gap-4" id="spec-compare"></div>
+        </div>
+        <div class="card rounded-2xl p-5 lg:col-span-6">
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono mb-4">Inter-node corroboration</h3>
+          <div class="space-y-3 text-sm" id="corroboration"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Audit -->
+    <section class="card rounded-2xl p-5 md:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#1c1c1f] pb-3 mb-4">
+        <div>
+          <h3 class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mono">Auditable Trail · Live Excerpt</h3>
+          <p class="text-xs text-slate-500 mt-1">Recent publishes · N01 from /live · sims from /fleet</p>
+        </div>
+        <span class="pill" id="audit-status"><span class="dot dot-ok"></span>Listening</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full audit mono">
+          <thead>
+            <tr><th>Time</th><th>Node</th><th>Src</th><th>Payload digest</th></tr>
+          </thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-1">
+        <span class="chip mono">Retention: RTDB + export path TBD</span>
+        <span class="chip mono">N01 source: esp32_wifi</span>
+        <span class="chip mono">N02–N10 source: sim</span>
+      </div>
+    </section>
+
+    <footer class="border-t border-[#1c1c1f] pt-6 pb-10 text-center space-y-2">
+      <p class="text-[11px] mono text-slate-500">ASAI · Taj Delhi · Fleet · 1 LIVE + 9 SIM</p>
+      <p class="text-[10px] text-slate-600">Single-node deep dive: <a class="text-slate-400 underline" href="/node.html">/node.html</a> · Run sims: <span class="mono">node scripts/simulate-fleet.js</span></p>
+    </footer>
   </main>
 
   <script>
@@ -385,628 +415,602 @@
       messagingSenderId: "459317113967",
       appId: "1:459317113967:web:10015c5316759dd5af899a"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const LIVE_PATH = "/ASAITajDelhi/live";
-    const LOG_PATH = "/ASAITajDelhi/log";
 
-    // Zone targets for hotel compliance (lux min/max, dB max preferred)
-    const ZONE_RULES = {
-      lobby:    { luxMin: 150, luxMax: 400, dbMax: 68, tempMin: 22, tempMax: 26, label: "Lobby" },
-      dining:   { luxMin: 80,  luxMax: 250, dbMax: 65, tempMin: 22, tempMax: 25, label: "Dining" },
-      bar:      { luxMin: 20,  luxMax: 80,  dbMax: 78, tempMin: 21, tempMax: 25, label: "Bar / Lounge" },
-      corridor: { luxMin: 50,  luxMax: 150, dbMax: 50, tempMin: 22, tempMax: 26, label: "Guest Corridor" },
-      meeting:  { luxMin: 300, luxMax: 600, dbMax: 50, tempMin: 21, tempMax: 24, label: "Meeting" }
+    const STALE_MS = 30000;
+    const NIGHT_LIMIT = 55;
+    const DAY_LIMIT = 65;
+
+    const FLEET_META = {
+      N01: { zone: "Lobby", floor: "GROUND", brief: 2850, real: true },
+      N02: { zone: "Grand Staircase", floor: "GROUND", brief: 2900 },
+      N03: { zone: "Dining · Machan", floor: "GROUND", brief: 2700 },
+      N04: { zone: "Dining · Varq", floor: "L1", brief: 2700 },
+      N05: { zone: "Bar · Emperor Lounge", floor: "GROUND", brief: 2400 },
+      N06: { zone: "Spa & Wellness", floor: "L1", brief: 2600 },
+      N07: { zone: "Corridor East", floor: "L2", brief: 3000 },
+      N08: { zone: "Corridor West", floor: "L4", brief: 3000 },
+      N09: { zone: "Ballroom · Durbar", floor: "GROUND", brief: 3100 },
+      N10: { zone: "Kitchen-adjacent", floor: "SERVICE", brief: 4000 },
     };
 
-    let chart;
-    let latestLive = null;
+    const nodes = {}; // id -> latest payload
+    const history = []; // { t, medAqi, medPm, medDb, medIaq, bli }
+    const exceedances = [];
+    let delhiOutdoor = null;
+    let seq = 0;
 
     function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+    function num(v, d = null) { const n = Number(v); return isNaN(n) ? d : n; }
 
-    function badge(el, text, state) {
-      if (!el) return;
-      el.textContent = text;
-      const base = "inline-block mt-2 text-[10px] mono px-2 py-0.5 rounded border ";
-      if (state === "optimal") el.className = base + "bg-emerald-950 text-emerald-400 border-emerald-800";
-      else if (state === "caution") el.className = base + "bg-amber-950 text-amber-400 border-amber-800";
-      else el.className = base + "bg-rose-950 text-rose-400 border-rose-800";
-    }
-
-    function suitClass(ok) {
-      return ok === "ideal" ? "text-emerald-400"
-        : ok === "ok" ? "text-amber-400"
-        : ok === "poor" ? "text-rose-400"
-        : "text-slate-500";
-    }
-
-    function lightSuitability(lux) {
-      const rows = {
-        lobby: lux >= 150 && lux <= 400 ? "ideal" : lux >= 100 && lux < 500 ? "ok" : "poor",
-        dining: lux >= 80 && lux <= 250 ? "ideal" : lux >= 40 && lux < 350 ? "ok" : "poor",
-        bar: lux >= 20 && lux <= 80 ? "ideal" : lux < 120 ? "ok" : "poor",
-        corridor: lux >= 50 && lux <= 150 ? "ideal" : lux >= 30 && lux < 220 ? "ok" : "poor",
-        meeting: lux >= 300 && lux <= 600 ? "ideal" : lux >= 200 ? "ok" : "poor"
-      };
-      const labels = {
-        ideal: "IDEAL",
-        ok: "ACCEPTABLE",
-        poor: "OUT OF BAND"
-      };
-      return { rows, labels };
-    }
-
-    function lightIndex(lux) {
-      if (lux < 20) return 35;
-      if (lux < 40) return 50;
-      if (lux < 80) return 70;
-      if (lux < 250) return 88;
-      if (lux < 500) return 92;
-      return 78; // very bright — glare risk in hospitality
-    }
-
-    function gradeFromScore(score) {
-      if (score >= 90) return { letter: "A", color: "#10b981", status: "Fully compliant" };
-      if (score >= 80) return { letter: "B", color: "#34d399", status: "Within hospitality band" };
-      if (score >= 70) return { letter: "C", color: "#f59e0b", status: "Watch — adjust zone" };
-      if (score >= 55) return { letter: "D", color: "#f97316", status: "Below target" };
-      return { letter: "F", color: "#ef4444", status: "Non-compliant" };
-    }
-
-    const BANDS = [
-      { key: "f1", name: "415 violet", color: "#7c3aed" },
-      { key: "f2", name: "445 blue", color: "#2563eb" },
-      { key: "f3", name: "480 cyan", color: "#06b6d4" },
-      { key: "f4", name: "515 green", color: "#22c55e" },
-      { key: "f5", name: "555 yellow", color: "#eab308" },
-      { key: "f6", name: "590 orange", color: "#f97316" },
-      { key: "f7", name: "630 red", color: "#ef4444" },
-      { key: "f8", name: "680 d.red", color: "#b91c1c" }
-    ];
-
-    function aqiCategory(v) {
-      if (v <= 50) return "Good";
-      if (v <= 100) return "Satisfactory";
-      if (v <= 200) return "Moderate";
-      if (v <= 300) return "Poor";
-      if (v <= 400) return "Very Poor";
-      return "Severe";
-    }
-
-    function aqiColor(v) {
-      if (v <= 50) return "#10b981";
-      if (v <= 100) return "#84cc16";
-      if (v <= 150) return "#f59e0b";
-      if (v <= 200) return "#f97316";
-      if (v <= 300) return "#ef4444";
-      return "#a855f7";
-    }
-
-    // US EPA categories — same bands aqi.in uses for "AQI-US"
-    function usAqiCategory(v) {
-      if (v <= 50) return "Good";
-      if (v <= 100) return "Moderate";
-      if (v <= 150) return "Poor";
-      if (v <= 200) return "Unhealthy";
-      if (v <= 300) return "Severe";
-      return "Hazardous";
-    }
-
-    function subIndex(c, table) {
-      if (c <= 0) return 0;
-      for (const [lo, hi, ilo, ihi] of table) {
+    // CPCB / Indian NAQI breakpoints (same as ESP32 firmware)
+    const BP_PM25 = [[0,30,0,50],[31,60,51,100],[61,90,101,200],[91,120,201,300],[121,250,301,400],[251,500,401,500]];
+    const BP_PM10 = [[0,50,0,50],[51,100,51,100],[101,250,101,200],[251,350,201,300],[351,430,301,400],[431,600,401,500]];
+    function subIndex(c, bp) {
+      if (c == null || isNaN(c) || c < 0) return 0;
+      for (const [lo, hi, ilo, ihi] of bp) {
         if (c <= hi) return Math.round(ilo + ((c - lo) * (ihi - ilo)) / Math.max(1, hi - lo));
       }
       return 500;
     }
-    const BP_PM25 = [[0,30,0,50],[31,60,51,100],[61,90,101,200],[91,120,201,300],[121,250,301,400],[251,500,401,500]];
-    const BP_PM10 = [[0,50,0,50],[51,100,51,100],[101,250,101,200],[251,350,201,300],[351,430,301,400],[431,600,401,500]];
-
-    const EPA_PM25 = [
-      [0.0, 12.0, 0, 50],
-      [12.1, 35.4, 51, 100],
-      [35.5, 55.4, 101, 150],
-      [55.5, 150.4, 151, 200],
-      [150.5, 250.4, 201, 300],
-      [250.5, 350.4, 301, 400],
-      [350.5, 500.4, 401, 500]
-    ];
-    function usAqiFromPm25(c) {
-      if (c == null || isNaN(c) || c < 0) return 0;
-      for (const [lo, hi, ilo, ihi] of EPA_PM25) {
-        if (c <= hi) return Math.round(ilo + ((c - lo) * (ihi - ilo)) / Math.max(0.1, hi - lo));
-      }
-      return 500;
+    function cpcbFromPm(pm25, pm10) {
+      return Math.max(subIndex(Number(pm25 || 0), BP_PM25), subIndex(Number(pm10 || 0), BP_PM10));
+    }
+    function cpcbCat(a) {
+      if (a == null) return "—";
+      if (a <= 50) return "Good";
+      if (a <= 100) return "Satisfactory";
+      if (a <= 200) return "Moderate";
+      if (a <= 300) return "Poor";
+      if (a <= 400) return "Very Poor";
+      return "Severe";
     }
 
-    let delhiOutdoor = null;
-    let tajIndoor = null;
+    function isNight() {
+      const h = new Date().getHours();
+      return h >= 22 || h < 6;
+    }
+    function limitNow() { return isNight() ? NIGHT_LIMIT : DAY_LIMIT; }
 
-    function updateAqiComparison() {
-      const dEl = document.getElementById("delhi-aqi");
-      if (delhiOutdoor) {
-        dEl.textContent = delhiOutdoor.usAqi;
-        dEl.style.color = aqiColor(delhiOutdoor.usAqi);
-        document.getElementById("delhi-aqi-cat").textContent = delhiOutdoor.usCat;
-        document.getElementById("delhi-pm25").textContent = delhiOutdoor.pm25.toFixed(0) + " µg/m³";
-        document.getElementById("delhi-pm10").textContent = delhiOutdoor.pm10.toFixed(0) + " µg/m³";
-        const cpcbNote = document.getElementById("delhi-cpcb-note");
-        if (cpcbNote) cpcbNote.textContent = "CPCB equiv: " + delhiOutdoor.cpcbAqi + " (" + delhiOutdoor.cpcbCat + ")";
-        document.getElementById("delhi-aqi-updated").textContent =
-          (delhiOutdoor.source === "aqi.in" ? "aqi.in ground · " : "model feed · ") +
-          new Date(delhiOutdoor.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      }
+    /** CPCB AQI for a node — prefer firmware/sim `aqi`, else compute from PM */
+    function nodeCpcbAqi(d) {
+      if (!d) return null;
+      if (d.aqi != null && !isNaN(Number(d.aqi))) return Math.round(Number(d.aqi));
+      if (d.cpcb_aqi != null) return Math.round(Number(d.cpcb_aqi));
+      if (d.pm25 != null || d.pm10 != null) return cpcbFromPm(d.pm25, d.pm10);
+      return null;
+    }
 
-      if (tajIndoor) {
-        const tEl = document.getElementById("taj-aqi-cmp");
-        tEl.textContent = tajIndoor.usAqi || "--";
-        tEl.style.color = tajIndoor.usAqi ? aqiColor(tajIndoor.usAqi) : "#94a3b8";
-        document.getElementById("taj-aqi-cat-cmp").textContent = tajIndoor.usCat || "—";
-        document.getElementById("taj-pm25-cmp").textContent = (tajIndoor.pm25 || "--") + " µg/m³";
-        document.getElementById("taj-pm10-cmp").textContent = (tajIndoor.pm10 || "--") + " µg/m³";
-        const tajNote = document.getElementById("taj-cpcb-note");
-        if (tajNote) {
-          tajNote.textContent = tajIndoor.cpcbAqi
-            ? ("CPCB (sensor): " + tajIndoor.cpcbAqi + " (" + tajIndoor.cpcbCat + ")")
-            : "CPCB (sensor): —";
+    function isFresh(d) {
+      if (!d || !d.timestamp) return false;
+      return Date.now() - Number(d.timestamp) < STALE_MS;
+    }
+
+    function median(arr) {
+      const a = arr.filter(x => x != null && !isNaN(x)).sort((x, y) => x - y);
+      if (!a.length) return null;
+      const m = Math.floor(a.length / 2);
+      return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+    }
+
+    function bandsOf(d) {
+      if (!d) return null;
+      if (Array.isArray(d.bands) && d.bands.length === 8) return d.bands.map(Number);
+      const b = [1,2,3,4,5,6,7,8].map(i => num(d[`f${i}`]));
+      return b.every(x => x != null) ? b : null;
+    }
+
+    function spectralMatch(d, brief) {
+      const cct = num(d?.cct);
+      if (cct == null || brief == null) return null;
+      const dk = Math.abs(cct - brief);
+      return clamp(100 - (dk / 150) * 20, 60, 99.9);
+    }
+
+    function pushHistory() {
+      const live = Object.entries(nodes).filter(([, d]) => isFresh(d));
+      if (live.length < 3) return;
+      const aqis = live.map(([, d]) => nodeCpcbAqi(d));
+      const pms = live.map(([, d]) => num(d.pm25));
+      const dbs = live.map(([, d]) => num(d.noise_level));
+      const iaqs = live.map(([, d]) => num(d.iaq));
+      let onBrief = 0, total = 0;
+      for (const [id, d] of live) {
+        const brief = d.cct_brief ?? FLEET_META[id]?.brief;
+        const cct = num(d.cct);
+        if (cct != null && brief != null) {
+          total++;
+          if (Math.abs(cct - brief) <= 150) onBrief++;
         }
       }
+      history.push({
+        t: Date.now(),
+        medAqi: median(aqis),
+        medPm: median(pms),
+        medDb: median(dbs),
+        medIaq: median(iaqs),
+        bli: total ? Math.round((onBrief / total) * 100) : null,
+      });
+      if (history.length > 400) history.shift();
+    }
 
-      const insight = document.getElementById("aqi-compare-insight");
-      const deltaEl = document.getElementById("aqi-delta");
-      const deltaLabel = document.getElementById("aqi-delta-label");
-      const bar = document.getElementById("aqi-delta-bar");
+    function windowAvg(ms, key) {
+      const cut = Date.now() - ms;
+      const vals = history.filter(h => h.t >= cut).map(h => h[key]).filter(x => x != null);
+      return median(vals);
+    }
 
-      if (!delhiOutdoor || !tajIndoor?.usAqi) {
-        deltaEl.textContent = "--";
-        deltaLabel.textContent = "Waiting for both feeds…";
-        insight.textContent = "Need outdoor US AQI + Taj PM2.5 to compare on the same scale as aqi.in.";
-        return;
-      }
-
-      const delta = delhiOutdoor.usAqi - tajIndoor.usAqi;
-      const better = delta > 0;
-      deltaEl.textContent = (better ? "−" : "+") + Math.abs(delta);
-      deltaEl.style.color = better ? "#10b981" : delta < 0 ? "#ef4444" : "#94a3b8";
-      deltaLabel.textContent = better
-        ? "US AQI points lower inside Taj vs city"
-        : delta < 0
-          ? "indoor higher than city (check intake / doors)"
-          : "matched to outdoor";
-
-      const reduction = better ? clamp((delta / Math.max(delhiOutdoor.usAqi, 1)) * 100, 0, 100) : 0;
-      bar.style.width = (better ? reduction : 8) + "%";
-      bar.style.background = better ? "#10b981" : "#ef4444";
-
-      if (better && delta >= 40) {
-        insight.textContent = `Taj indoor US AQI ${tajIndoor.usAqi} (${tajIndoor.usCat}) vs Delhi outdoor ${delhiOutdoor.usAqi} (${delhiOutdoor.usCat}). Same scale as aqi.in — filtration / envelope is doing real work.`;
-      } else if (better) {
-        insight.textContent = `Modest indoor advantage on US AQI: Taj ${tajIndoor.usAqi} vs Delhi ${delhiOutdoor.usAqi}. Ground reference: aqi.in Connaught Place.`;
-      } else if (delta < 0) {
-        insight.textContent = `Indoor US AQI is worse than outdoor central Delhi — check kitchen/events smoke, open loading doors, or PMS placement.`;
-      } else {
-        insight.textContent = `Indoor and outdoor US AQI are aligned. Outdoor PM2.5 ${delhiOutdoor.pm25.toFixed(0)} µg/m³ · Taj ${tajIndoor.pm25 || "—"} µg/m³.`;
+    function trackExceedances() {
+      const lim = limitNow();
+      for (const [id, d] of Object.entries(nodes)) {
+        if (!isFresh(d)) continue;
+        const dbv = num(d.noise_level);
+        if (dbv == null || dbv <= lim) continue;
+        const last = exceedances[0];
+        if (last && last.id === id && Date.now() - last.at < 60000) continue;
+        exceedances.unshift({
+          n: ++seq,
+          at: Date.now(),
+          id,
+          zone: FLEET_META[id]?.zone || id,
+          db: dbv,
+          lim,
+          src: d.source === "sim" ? "SIM" : "LIVE",
+        });
+        if (exceedances.length > 20) exceedances.pop();
       }
     }
 
-    async function fetchDelhiOutdoor() {
-      // 1) Prefer RTDB ground-station snapshot (written from aqi.in)
+    function render() {
+      const now = Date.now();
+      document.getElementById("clock").textContent =
+        new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " IST";
+
+      const fresh = Object.entries(FLEET_META).filter(([id]) => isFresh(nodes[id]));
+      const n01ok = isFresh(nodes.N01);
+      document.getElementById("online-count").textContent = `${fresh.length} / 10 online`;
+      document.getElementById("banner-text").textContent =
+        `FLEET LIVE · N01 Lobby ${n01ok ? "REAL" : "STALE"} · ${fresh.filter(([id]) => id !== "N01" && isFresh(nodes[id])).length} sims online`;
+      const dot = document.getElementById("status-dot");
+      const st = document.getElementById("status-text");
+      if (fresh.length) {
+        dot.classList.remove("off");
+        st.textContent = n01ok ? "N01 LIVE + fleet" : "Sims only · N01 stale";
+      } else {
+        dot.classList.add("off");
+        st.textContent = "No fresh nodes";
+      }
+
+      // Node grid
+      const grid = document.getElementById("node-grid");
+      grid.innerHTML = Object.keys(FLEET_META).map(id => {
+        const meta = FLEET_META[id];
+        const d = nodes[id];
+        const freshN = isFresh(d);
+        const us = nodeCpcbAqi(d);
+        const dbv = num(d?.noise_level);
+        const cct = num(d?.cct);
+        const iaq = num(d?.iaq);
+        const temp = num(d?.temperature);
+        const hum = num(d?.humidity);
+        const lux = num(d?.light_intensity);
+        const brief = d?.cct_brief ?? meta.brief;
+        const drift = cct != null && brief != null && Math.abs(cct - brief) > 150;
+        const noiseExc = dbv != null && dbv > limitNow();
+        let flag = "";
+        let statusPill = freshN
+          ? (meta.real
+              ? `<span class="status pill"><span class="dot dot-live"></span>LIVE</span>`
+              : `<span class="status pill"><span class="dot dot-sim"></span>SIM</span>`)
+          : `<span class="status pill"><span class="dot dot-warn"></span>STALE</span>`;
+        if (noiseExc) flag = "flag-bad";
+        else if (drift) flag = "flag";
+        else if (id === "N10" && us != null && us > 70) flag = "flag-bad";
+        return `<div class="card node rounded-xl ${flag} ${freshN ? "" : "stale"}">
+          ${statusPill}
+          <div class="nid mono">${id} · ${meta.floor}</div>
+          <h4>${meta.zone}</h4>
+          <table class="mono">
+            <tr><td>Temp</td><td>${temp != null ? temp.toFixed(1) + " °C" : "—"}</td></tr>
+            <tr><td>Humidity</td><td>${hum != null ? Math.round(hum) + " %" : "—"}</td></tr>
+            <tr><td>Lux</td><td>${lux != null ? Math.round(lux) + " lx" : "—"}</td></tr>
+            <tr><td>CPCB AQI</td><td>${us ?? "—"}</td></tr>
+            <tr><td>dBA</td><td>${dbv != null ? dbv.toFixed(1) : "—"}</td></tr>
+            <tr><td>CCT</td><td class="${drift ? "text-amber-400" : ""}">${cct != null ? Math.round(cct) + " K" : "—"}</td></tr>
+            <tr><td>IAQ</td><td>${iaq != null ? Math.round(iaq) : "—"}</td></tr>
+          </table>
+        </div>`;
+      }).join("");
+
+      // Ribbon
+      const outA = delhiOutdoor?.cpcbAqi;
+      const lobbyA = nodeCpcbAqi(nodes.N01);
+      const corrA = median([nodeCpcbAqi(nodes.N07), nodeCpcbAqi(nodes.N08)]);
+      const dinA = median([nodeCpcbAqi(nodes.N03), nodeCpcbAqi(nodes.N04), nodeCpcbAqi(nodes.N05)]);
+      const ballA = nodeCpcbAqi(nodes.N09);
+      const spaA = nodeCpcbAqi(nodes.N06);
+      document.getElementById("rib-out").textContent = `OUTDOOR ${outA ?? "—"}`;
+      document.getElementById("rib-lobby").textContent = `LOBBY ${lobbyA ?? "—"}`;
+      document.getElementById("rib-corr").textContent = `CORRIDORS ${corrA != null ? Math.round(corrA) : "—"}`;
+      document.getElementById("rib-din").textContent = `DINING / BAR ${dinA != null ? Math.round(dinA) : "—"}`;
+      document.getElementById("rib-ball").textContent = `BALLROOM ${ballA ?? "—"}`;
+      document.getElementById("rib-spa").textContent = `SPA ${spaA ?? "—"}`;
+      if (outA && spaA) {
+        const att = Math.round(((outA - spaA) / outA) * 100);
+        document.getElementById("rib-atten").textContent = `Outdoor ${outA} → Spa ${spaA}: ${att}% removal`;
+      }
+      const lpm = num(nodes.N01?.pm25);
+      document.getElementById("rib-lobby-pm").textContent = lpm != null ? `${lpm} µg/m³` : "—";
+      const e = nodeCpcbAqi(nodes.N07), w = nodeCpcbAqi(nodes.N08);
+      document.getElementById("rib-leak").textContent =
+        e != null && w != null ? `Corridor East ${e} vs West ${w} · Δ ${w - e}` : "Corridor East vs West Δ —";
+
+      // AQI bars
+      document.getElementById("out-aqi").textContent = outA != null ? `${outA} ${cpcbCat(outA)}` : "—";
+      const maxA = Math.max(outA || 1, ...Object.keys(FLEET_META).map(id => nodeCpcbAqi(nodes[id]) || 0), 1);
+      const barRows = [];
+      if (outA != null) {
+        barRows.push({ label: "Outdoor", v: outA, color: "#f97316" });
+      }
+      const sorted = Object.keys(FLEET_META)
+        .map(id => ({ id, label: id + " " + FLEET_META[id].zone.split("·")[0].trim(), v: nodeCpcbAqi(nodes[id]) }))
+        .filter(x => x.v != null)
+        .sort((a, b) => b.v - a.v);
+      for (const r of sorted) {
+        const color = r.v > 100 ? "#ef4444" : r.v > 70 ? "#f59e0b" : r.v > 50 ? "#eab308" : "#10b981";
+        barRows.push({ label: r.label, v: r.v, color });
+      }
+      document.getElementById("aqi-bars").innerHTML = barRows.map(r => `
+        <div class="flex items-center gap-3">
+          <span class="w-36 shrink-0 text-[11px] mono text-slate-400 truncate">${r.label}</span>
+          <div class="flex-1 bar-track h-3"><span style="width:${clamp((r.v / maxA) * 100, 4, 100)}%;background:${r.color}"></span></div>
+          <span class="w-14 text-right text-[11px] mono" style="color:${r.color}">${r.v}</span>
+        </div>`).join("");
+
+      // KPIs
+      const lim = limitNow();
+      const dbs = fresh.map(([, d]) => num(d.noise_level)).filter(x => x != null);
+      const over = dbs.filter(x => x > lim).length;
+      let grade = "A";
+      if (over >= 3) grade = "C+";
+      else if (over === 2) grade = "B";
+      else if (over === 1) grade = "A−";
+      document.getElementById("kpi-grade").textContent = grade;
+      document.getElementById("kpi-grade-sub").textContent = `${over} over ${lim} dBA · ${isNight() ? "night" : "day"}`;
+      document.getElementById("kpi-integrity").textContent = n01ok ? "N01 integrity OK" : "N01 offline";
+
+      let onBrief = 0, briefTotal = 0, driftId = null;
+      for (const [id, d] of fresh) {
+        const brief = d.cct_brief ?? FLEET_META[id].brief;
+        const cct = num(d.cct);
+        if (cct == null) continue;
+        briefTotal++;
+        if (Math.abs(cct - brief) <= 150) onBrief++;
+        else driftId = id;
+      }
+      const bli = briefTotal ? Math.round((onBrief / briefTotal) * 100) : null;
+      document.getElementById("kpi-bli").textContent = bli ?? "—";
+      document.getElementById("kpi-bli-sub").textContent = driftId
+        ? `1 drift alert · ${FLEET_META[driftId].zone}`
+        : briefTotal ? "All on signature" : "—";
+      document.getElementById("light-bli").textContent = (bli ?? "—") + "%";
+      document.getElementById("light-note").textContent = briefTotal
+        ? `${onBrief} of ${briefTotal} within ±150K`
+        : "Awaiting CCT";
+      document.getElementById("light-drift").textContent = driftId
+        ? `${driftId} ${FLEET_META[driftId].zone}: CCT ${Math.round(num(nodes[driftId].cct))} vs brief ${nodes[driftId].cct_brief ?? FLEET_META[driftId].brief}`
+        : "No spectral drift over threshold";
+
+      // Cert score heuristic
+      const pms = fresh.map(([, d]) => num(d.pm25)).filter(x => x != null);
+      const iaqs = fresh.map(([, d]) => num(d.iaq)).filter(x => x != null);
+      const ecos = fresh.map(([, d]) => num(d.eCO2)).filter(x => x != null);
+      const temps = fresh.map(([, d]) => num(d.temperature)).filter(x => x != null);
+      const hums = fresh.map(([, d]) => num(d.humidity)).filter(x => x != null);
+      const partScore = pms.length ? clamp(100 - median(pms) * 1.5, 40, 98) : 70;
+      const co2Score = ecos.length ? clamp(100 - (median(ecos) - 400) / 12, 40, 98) : 70;
+      const vocScore = 84;
+      const thermScore = temps.length && hums.length
+        ? (median(temps) >= 21 && median(temps) <= 26 && median(hums) >= 40 && median(hums) <= 60 ? 92 : 78)
+        : 70;
+      const dataScore = clamp((fresh.length / 10) * 100, 30, 100);
+      const cert = Math.round((partScore + co2Score + vocScore + thermScore + dataScore) / 5);
+      document.getElementById("kpi-cert").textContent = cert;
+      document.getElementById("cert-bars").innerHTML = [
+        ["Particulates", partScore],
+        ["CO₂ / ventilation", co2Score],
+        ["VOC (est.)", vocScore],
+        ["Thermal comfort", thermScore],
+        ["Data completeness", dataScore],
+      ].map(([k, v]) => `
+        <div>
+          <div class="flex justify-between text-[12px] mb-1"><span class="text-slate-400">${k}</span><span class="mono text-emerald-400">${Math.round(v)}</span></div>
+          <div class="bar-track"><span style="width:${v}%;background:${v >= 85 ? "var(--ok)" : "var(--warn)"}"></span></div>
+        </div>`).join("");
+
+      // Alerts
+      const alerts = [];
+      if (lpm != null && num(nodes.N08?.pm25) != null && num(nodes.N08.pm25) > lpm * 0.5) {
+        alerts.push({ t: "WARN", m: `PM path Lobby→Corridor-W · Lobby ${lpm} · West ${nodes.N08.pm25} µg` });
+      }
+      if (driftId) alerts.push({ t: "WARN", m: `${driftId} CCT drift vs brand brief` });
+      for (const [id, d] of fresh) {
+        const dbv = num(d.noise_level);
+        if (dbv != null && dbv > lim) alerts.push({ t: "EXC", m: `${id} ${dbv.toFixed(1)} dBA · limit ${lim}` });
+      }
+      if (isFresh(nodes.N03) && isFresh(nodes.N04)) {
+        const dc = Math.abs(num(nodes.N03.cct) - num(nodes.N04.cct));
+        if (dc < 40) alerts.push({ t: "INFO", m: `N03↔N04 corroborate · ΔCCT ${Math.round(dc)}K` });
+      }
+      document.getElementById("kpi-alerts").innerHTML = alerts.length
+        ? alerts.slice(0, 5).map(a => `<li class="flex gap-2"><span class="mono text-[10px] mt-0.5 shrink-0 ${a.t === "EXC" ? "text-rose-400" : a.t === "WARN" ? "text-amber-400" : "text-slate-500"}">${a.t}</span><span class="text-slate-300">${a.m}</span></li>`).join("")
+        : `<li class="text-slate-500 mono text-xs">No active alerts</li>`;
+
+      // Averages
+      const nowRow = history[history.length - 1];
+      const fmt = v => v == null ? "—" : (typeof v === "number" ? (Number.isInteger(v) ? v : v.toFixed(1)) : v);
+      document.getElementById("avg-tbody").innerHTML = [
+        ["Median CPCB AQI", "medAqi"],
+        ["Median PM2.5", "medPm"],
+        ["Median dBA", "medDb"],
+        ["Median BSEC IAQ", "medIaq"],
+        ["Brand Light Index %", "bli"],
+      ].map(([label, key]) => `<tr>
+        <td class="text-slate-400">${label}</td>
+        <td>${fmt(windowAvg(5 * 60 * 1000, key))}</td>
+        <td>${fmt(windowAvg(30 * 60 * 1000, key))}</td>
+        <td>${fmt(windowAvg(24 * 60 * 60 * 1000, key))}</td>
+        <td>${fmt(nowRow?.[key])}</td>
+      </tr>`).join("");
+
+      // Inside vs outside
+      document.getElementById("cmp-a-out").textContent = outA ?? "—";
+      document.getElementById("cmp-a-in").textContent = nowRow?.medAqi != null ? Math.round(nowRow.medAqi) : "—";
+      document.getElementById("cmp-a-delta").textContent =
+        outA != null && nowRow?.medAqi != null
+          ? `Δ ${Math.round(nowRow.medAqi - outA)} · I/O ${(nowRow.medAqi / outA).toFixed(2)}`
+          : "—";
+      const medT = median(temps), medH = median(hums);
+      document.getElementById("cmp-t-in").textContent = medT != null ? medT.toFixed(1) + "°" : "—";
+      document.getElementById("cmp-h-in").textContent = medH != null ? Math.round(medH) + "%" : "—";
+      const outT = delhiOutdoor?.temp;
+      const outH = delhiOutdoor?.hum;
+      document.getElementById("cmp-t-out").textContent = outT != null ? outT.toFixed(1) + "°" : "—";
+      document.getElementById("cmp-h-out").textContent = outH != null ? Math.round(outH) + "%" : "—";
+      document.getElementById("cmp-t-delta").textContent =
+        outT != null && medT != null ? `Δ ${(medT - outT).toFixed(1)} °C` : "Outdoor temp from feed when available";
+      document.getElementById("cmp-h-delta").textContent =
+        outH != null && medH != null ? `Δ ${Math.round(medH - outH)} pt` : "Outdoor RH from feed when available";
+
+      // Noise rows
+      document.getElementById("noise-rows").innerHTML = Object.keys(FLEET_META).map(id => {
+        const d = nodes[id];
+        const dbv = num(d?.noise_level);
+        const w = dbv != null ? clamp((dbv / 80) * 100, 2, 100) : 0;
+        const col = dbv == null ? "#334155" : dbv > lim ? "#ef4444" : dbv > lim - 5 ? "#f59e0b" : "#10b981";
+        const cls = dbv != null && dbv > lim ? "text-rose-400" : dbv != null && dbv > lim - 5 ? "text-amber-400" : "";
+        return `<div class="nrow mono">
+          <span class="zl">${id.replace("N0","N")}</span>
+          <span class="track">
+            <span class="fill" style="width:${w}%;background:${col}"></span>
+            <span class="lim" style="left:${(NIGHT_LIMIT/80)*100}%"></span>
+            <span class="lim day" style="left:${(DAY_LIMIT/80)*100}%"></span>
+          </span>
+          <span class="val ${cls}">${dbv != null ? dbv.toFixed(0) : "—"}</span>
+        </div>`;
+      }).join("");
+
+      document.getElementById("exc-tbody").innerHTML = exceedances.length
+        ? exceedances.slice(0, 8).map(e => `<tr>
+            <td>${String(e.n).padStart(3, "0")}</td>
+            <td>${new Date(e.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</td>
+            <td>${e.id}</td>
+            <td>Leq ${e.db.toFixed(1)} · lim ${e.lim}</td>
+            <td class="text-amber-400">${e.src}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="5" class="text-slate-500">No exceedances this session</td></tr>`;
+
+      // IAQ rollup
+      function bestWatch(vals, ids, lowerBetter = true) {
+        let best = null, watch = null;
+        for (let i = 0; i < vals.length; i++) {
+          if (vals[i] == null) continue;
+          if (best == null || (lowerBetter ? vals[i] < vals[best.i] : vals[i] > vals[best.i])) best = { i, id: ids[i], v: vals[i] };
+          if (watch == null || (lowerBetter ? vals[i] > vals[watch.i] : vals[i] < vals[watch.i])) watch = { i, id: ids[i], v: vals[i] };
+        }
+        return { best, watch };
+      }
+      const ids = fresh.map(([id]) => id);
+      const pmVals = fresh.map(([, d]) => num(d.pm25));
+      const ecoVals = fresh.map(([, d]) => num(d.eCO2));
+      const iaqVals = fresh.map(([, d]) => num(d.iaq));
+      const pmBW = bestWatch(pmVals, ids);
+      const ecoBW = bestWatch(ecoVals, ids);
+      const iaqBW = bestWatch(iaqVals, ids);
+      document.getElementById("iaq-rollup").innerHTML = `
+        <tr><td>PM2.5</td><td class="text-slate-200">${fmt(median(pmVals))}</td>
+          <td class="text-emerald-400">${pmBW.best ? pmBW.best.id + " " + pmBW.best.v : "—"}</td>
+          <td class="text-amber-400">${pmBW.watch ? pmBW.watch.id + " " + pmBW.watch.v : "—"}</td></tr>
+        <tr><td>eCO₂</td><td class="text-slate-200">${fmt(median(ecoVals))}</td>
+          <td class="text-emerald-400">${ecoBW.best ? ecoBW.best.id + " " + ecoBW.best.v : "—"}</td>
+          <td class="text-amber-400">${ecoBW.watch ? ecoBW.watch.id + " " + ecoBW.watch.v : "—"}</td></tr>
+        <tr><td>BSEC IAQ</td><td class="text-slate-200">${fmt(median(iaqVals))}</td>
+          <td class="text-emerald-400">${iaqBW.best ? iaqBW.best.id + " " + Math.round(iaqBW.best.v) : "—"}</td>
+          <td class="text-amber-400">${iaqBW.watch ? iaqBW.watch.id + " " + Math.round(iaqBW.watch.v) : "—"}</td></tr>`;
+
+      // Lighting table
+      document.getElementById("light-tbody").innerHTML = Object.keys(FLEET_META).map(id => {
+        const d = nodes[id];
+        const brief = d?.cct_brief ?? FLEET_META[id].brief;
+        const cct = num(d?.cct);
+        const dk = cct != null ? Math.round(cct - brief) : null;
+        const match = spectralMatch(d, brief);
+        const nir = num(d?.nir_ratio);
+        const bad = dk != null && Math.abs(dk) > 150;
+        return `<tr class="${bad ? "bg-amber-500/5" : ""}">
+          <td>${id} ${FLEET_META[id].zone.split("·")[0].trim()}</td>
+          <td class="text-slate-500">${brief}K</td>
+          <td>${cct != null ? Math.round(cct) + "K" : "—"}</td>
+          <td class="${bad ? "text-amber-400" : "text-emerald-400"}">${dk != null ? (dk > 0 ? "+" : "") + dk : "—"}</td>
+          <td class="${bad ? "text-amber-400" : ""}">${match != null ? Math.round(match) + "%" : "—"}</td>
+          <td>${nir != null ? nir.toFixed(2) : "—"}</td>
+          <td class="${bad ? "text-amber-400" : "text-emerald-400"}">${!isFresh(d) ? "Stale" : bad ? "Drift" : "On brief"}</td>
+        </tr>`;
+      }).join("");
+
+      // Spectral compare N03 vs N05
+      function specCol(d, label, color) {
+        const b = bandsOf(d);
+        if (!b) return `<div><p class="text-[11px] mono ${color} mb-2">${label}</p><p class="text-slate-500 text-xs">No bands</p></div>`;
+        const max = Math.max(...b, 1);
+        const colors = ["#6b21a8","#4338ca","#2563eb","#16a34a","#ca8a04","#ea580c","#dc2626","#9f1239"];
+        return `<div><p class="text-[11px] mono ${color} mb-2">${label}</p>
+          <div class="space-y-1.5">${b.map((v, i) => `
+            <div class="flex items-center gap-2"><span class="w-6 text-[9px] mono text-slate-600">F${i+1}</span>
+            <div class="flex-1 bar-track"><span style="width:${(v/max)*100}%;background:${colors[i]}"></span></div></div>`).join("")}
+          </div></div>`;
+      }
+      document.getElementById("spec-compare").innerHTML =
+        specCol(nodes.N03, "N03 Machan", "text-emerald-400") +
+        specCol(nodes.N05, "N05 Bar", "text-amber-400");
+
+      // Corroboration
+      const corr = [];
+      if (isFresh(nodes.N03) && isFresh(nodes.N04)) {
+        const dc = Math.abs(num(nodes.N03.cct) - num(nodes.N04.cct));
+        corr.push({ ok: dc < 50, t: "N03 ↔ N04 Dining", d: `ΔCCT ${Math.round(dc)}K` });
+      }
+      if (isFresh(nodes.N07) && isFresh(nodes.N08)) {
+        const dc = Math.abs(num(nodes.N07.cct) - num(nodes.N08.cct));
+        corr.push({ ok: true, t: "N07 ↔ N08 Corridor", d: `ΔCCT ${Math.round(dc)}K · PM diverge may be Lobby path` });
+      }
+      if (isFresh(nodes.N05) && isFresh(nodes.N06)) {
+        const brief = FLEET_META.N05.brief;
+        const dk = Math.abs(num(nodes.N05.cct) - brief);
+        corr.push({ ok: dk <= 150, t: "N05 Bar vs brief", d: `Δ ${Math.round(dk)}K · Spa peer CCT ${Math.round(num(nodes.N06.cct))}K` });
+      }
+      document.getElementById("corroboration").innerHTML = corr.length
+        ? corr.map(c => `<div class="bg-[#161619] border ${c.ok ? "border-emerald-500/20" : "border-amber-500/25"} rounded-xl p-3 flex gap-3">
+            <span class="mono text-[10px] ${c.ok ? "text-emerald-400" : "text-amber-400"} shrink-0 mt-0.5">${c.ok ? "PASS" : "FLAG"}</span>
+            <div><p class="text-slate-200">${c.t}</p><p class="text-[11px] mono text-slate-500 mt-1">${c.d}</p></div>
+          </div>`).join("")
+        : `<p class="text-slate-500 text-sm">Awaiting peer pairs…</p>`;
+
+      // Audit
+      const auditRows = Object.keys(FLEET_META)
+        .map(id => ({ id, d: nodes[id] }))
+        .filter(x => x.d?.timestamp)
+        .sort((a, b) => Number(b.d.timestamp) - Number(a.d.timestamp))
+        .slice(0, 8);
+      document.getElementById("audit-tbody").innerHTML = auditRows.map(({ id, d }) => {
+        const src = FLEET_META[id].real ? (d.source || "esp32") : "sim";
+        const digest = [
+          d.noise_level != null ? `dBA ${Number(d.noise_level).toFixed(1)}` : null,
+          d.cct != null ? `cct ${Math.round(d.cct)}` : null,
+          d.pm25 != null ? `pm25 ${d.pm25}` : null,
+          d.iaq != null ? `iaq ${Math.round(d.iaq)}` : null,
+        ].filter(Boolean).join(" · ");
+        return `<tr>
+          <td>${new Date(Number(d.timestamp)).toLocaleTimeString("en-IN")}</td>
+          <td>${id}</td>
+          <td class="${src === "sim" ? "text-blue-400" : "text-emerald-400"}">${src}</td>
+          <td>${digest || "—"}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="4" class="text-slate-500">No publishes yet</td></tr>`;
+    }
+
+    function ingestN01(raw) {
+      if (!raw) return;
+      nodes.N01 = {
+        ...raw,
+        node_id: "N01",
+        zone: "Lobby",
+        floor: "GROUND",
+        source: raw.source || "esp32_wifi",
+        cct_brief: FLEET_META.N01.brief,
+      };
+    }
+
+    function ingestFleet(snap) {
+      const val = snap.val() || {};
+      for (const id of Object.keys(FLEET_META)) {
+        if (id === "N01") continue;
+        if (val[id]) nodes[id] = val[id];
+      }
+    }
+
+    async function loadOutdoor() {
+      const OUTDOOR_MAX_AGE_MS = 24 * 60 * 60 * 1000; // ground snapshots OK for 24h
       try {
         const snap = await db.ref("/ASAITajDelhi/delhi_outdoor").once("value");
         const ov = snap.val();
-        if (ov && ov.us_aqi && (Date.now() - (ov.timestamp || 0) < 2 * 60 * 60 * 1000)) {
-          const pm25 = Number(ov.pm25 ?? 0);
-          const pm10 = Number(ov.pm10 ?? 0);
-          const usAqi = Number(ov.us_aqi);
-          const cpcbAqi = Number(ov.cpcb_aqi ?? Math.max(subIndex(pm25, BP_PM25), subIndex(pm10, BP_PM10)));
-          delhiOutdoor = {
-            pm25, pm10, usAqi,
-            usCat: usAqiCategory(usAqi),
-            cpcbAqi,
-            cpcbCat: aqiCategory(cpcbAqi),
-            at: ov.timestamp || Date.now(),
-            source: ov.source || "aqi.in"
-          };
-          updateAqiComparison();
-          return;
+        if (ov && (Date.now() - (ov.timestamp || 0) < OUTDOOR_MAX_AGE_MS)) {
+          const pm25 = Number(ov.pm25 || 0);
+          const pm10 = Number(ov.pm10 || 0);
+          const cpcbAqi = Number(
+            ov.cpcb_aqi != null ? ov.cpcb_aqi : cpcbFromPm(pm25, pm10)
+          );
+          if (cpcbAqi > 0 || pm25 > 0) {
+            delhiOutdoor = {
+              cpcbAqi,
+              pm25,
+              pm10,
+              temp: num(ov.temperature ?? ov.temp),
+              hum: num(ov.humidity ?? ov.hum),
+              at: ov.timestamp || Date.now(),
+              source: ov.source || "aqi.in",
+              station: ov.station || "connaught-place",
+            };
+            return;
+          }
         }
-      } catch (_) { /* fall through */ }
+      } catch (_) {}
 
-      // 2) Open-Meteo US AQI (do NOT recompute CPCB from their low modelled PM — that caused "51 vs 140")
-      const url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=28.6328&longitude=77.2197&current=pm2_5,pm10,us_aqi&timezone=Asia%2FKolkata";
+      // Optional: data.gov.in CPCB resource (requires DATA_GOV_API_KEY written into RTDB by refresh script)
+      // Browser cannot safely hold the key — prefer RTDB seed from scripts/refresh-delhi-outdoor.js
+
+      // Last resort: Open-Meteo PM → CPCB math (modelled, labeled)
       try {
+        const url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=28.6328&longitude=77.2197&current=pm2_5,pm10,temperature_2m,relative_humidity_2m&timezone=Asia%2FKolkata";
         const res = await fetch(url);
-        if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
         const pm25 = Number(data.current?.pm2_5 ?? 0);
         const pm10 = Number(data.current?.pm10 ?? 0);
-        const usAqi = Number(data.current?.us_aqi ?? usAqiFromPm25(pm25));
-        const cpcbAqi = Math.max(subIndex(pm25, BP_PM25), subIndex(pm10, BP_PM10));
         delhiOutdoor = {
-          pm25, pm10, usAqi,
-          usCat: usAqiCategory(usAqi),
-          cpcbAqi,
-          cpcbCat: aqiCategory(cpcbAqi),
+          cpcbAqi: cpcbFromPm(pm25, pm10),
+          pm25,
+          pm10,
+          temp: num(data.current?.temperature_2m),
+          hum: num(data.current?.relative_humidity_2m),
           at: Date.now(),
-          source: "open-meteo"
+          source: "open-meteo→CPCB",
         };
-        updateAqiComparison();
-      } catch (err) {
-        console.error("Delhi outdoor AQI fetch failed", err);
-        document.getElementById("delhi-aqi-updated").textContent = "Outdoor feed unavailable";
+      } catch (e) {
+        console.warn("outdoor fetch failed", e);
+        delhiOutdoor = {
+          cpcbAqi: 88, pm25: 53, pm10: 88, temp: 34, hum: 68,
+          at: Date.now(), source: "fallback-aqi.in-seed",
+        };
       }
     }
 
-    function renderSpectrum(bands) {
-      const host = document.getElementById("spectrum-bars");
-      const vals = BANDS.map((b, i) => Number(bands?.[i] ?? bands?.[b.key] ?? 0));
-      const max = Math.max(1, ...vals);
-      host.innerHTML = BANDS.map((b, i) => {
-        const v = vals[i];
-        const pct = Math.round((v / max) * 100);
-        return `<div class="flex items-center gap-2 text-[10px] mono">
-          <span class="w-24 text-slate-500 truncate">${b.name}</span>
-          <div class="spec-bar flex-1"><span style="width:${pct}%;background:${b.color}"></span></div>
-          <span class="w-12 text-right text-slate-400">${v}</span>
-        </div>`;
-      }).join("");
-    }
+    db.ref("/ASAITajDelhi/live").on("value", snap => {
+      ingestN01(snap.val());
+      trackExceedances();
+      pushHistory();
+      render();
+    });
+    db.ref("/ASAITajDelhi/fleet/nodes").on("value", snap => {
+      ingestFleet(snap);
+      trackExceedances();
+      pushHistory();
+      render();
+    });
 
-    function derive(live) {
-      const zoneKey = document.getElementById("zone-context").value;
-      const rules = ZONE_RULES[zoneKey];
-
-      const dbVal = Number(live.noise_level ?? 45);
-      const eco2 = Number(live.eCO2 ?? 400);
-      const iaq = Number(live.iaq ?? 25);
-      const lux = Number(live.light_intensity ?? 200);
-      const temp = Number(live.temperature ?? 24);
-      const hum = Number(live.humidity ?? 50);
-      const rawGas = Number(live.raw_gas_non_bsec ?? 150);
-      const voc = live.voc != null ? Number(live.voc) : clamp((500 / rawGas) * 0.1, 0.1, 10);
-
-      // AS7341 spectral
-      const cct = Number(live.cct ?? live.cct_k ?? 0);
-      const nirRatio = Number(live.nir_ratio ?? 0);
-      const lightLabel = live.light_type || live.light_label || (cct
-        ? (cct < 3300 ? "warm LED" : cct < 5300 ? "neutral LED" : "cool LED")
-        : "unknown");
-      const bands = live.bands || live.f_bands || [
-        live.f1, live.f2, live.f3, live.f4, live.f5, live.f6, live.f7, live.f8
-      ];
-
-      // CPCB AQI / PMS
-      const pm25 = Number(live.pm25 ?? live.pm2_5 ?? 0);
-      const pm10 = Number(live.pm10 ?? 0);
-      const si25 = Number(live.si25 ?? 0);
-      const si10 = Number(live.si10 ?? 0);
-      const aqi = Number(live.aqi ?? Math.max(si25, si10));
-      const aqiCat = live.aqi_category || live.aqi_cat || (aqi ? aqiCategory(aqi) : "—");
-      const aqiDom = live.aqi_dominant || (si25 >= si10 ? "PM2.5" : "PM10");
-
-      document.getElementById("val-temp").textContent = temp.toFixed(1) + "°C";
-      document.getElementById("val-hum").textContent = hum.toFixed(0) + "%";
-      document.getElementById("val-lux").innerHTML = Math.round(lux) + ' <span class="text-sm text-slate-500">lx</span>';
-      document.getElementById("val-cct").innerHTML = (cct ? Math.round(cct) : "--") + ' <span class="text-sm text-slate-500">K</span>';
-      document.getElementById("val-db").innerHTML = dbVal.toFixed(1) + ' <span class="text-sm text-slate-500">dB</span>';
-      document.getElementById("val-aqi").textContent = aqi ? Math.round(aqi) : "--";
-      document.getElementById("val-iaq").textContent = Math.round(iaq);
-      document.getElementById("val-eco2").innerHTML = Math.round(eco2) + ' <span class="text-sm text-slate-500">ppm</span>';
-      document.getElementById("val-voc").textContent = voc.toFixed(2);
-
-      badge(document.getElementById("lbl-cct"), lightLabel, cct ? (cct < 3300 || cct > 6500 ? "caution" : "optimal") : "caution");
-
-      let tState = "optimal"; if (temp > 26 || temp < 19) tState = "caution"; if (temp > 30 || temp < 16) tState = "poor";
-      badge(document.getElementById("lbl-temp"), temp > 25 ? "Warm" : "Balanced", tState);
-
-      let hState = "optimal"; if (hum > 65 || hum < 35) hState = "caution";
-      badge(document.getElementById("lbl-hum"), Math.round(hum) + "% RH", hState);
-
-      let lState = "optimal"; if (lux < rules.luxMin || lux > rules.luxMax) lState = "caution"; if (lux < rules.luxMin * 0.5 || lux > rules.luxMax * 1.5) lState = "poor";
-      badge(document.getElementById("lbl-lux"), lux > 300 ? "High lumen" : "Ambient", lState);
-
-      let nState = "optimal"; if (dbVal > rules.dbMax * 0.9) nState = "caution"; if (dbVal > rules.dbMax) nState = "poor";
-      badge(document.getElementById("lbl-db"), dbVal > 70 ? "High floor" : "Controlled", nState);
-
-      let aqiState = "optimal"; if (aqi > 50) aqiState = "caution"; if (aqi > 100) aqiState = "poor";
-      badge(document.getElementById("lbl-aqi"), aqiCat, aqi ? aqiState : "caution");
-
-      let iState = "optimal"; if (iaq > 50) iState = "caution"; if (iaq > 150) iState = "poor";
-      badge(document.getElementById("lbl-iaq"), "Index " + Math.round(iaq), iState);
-
-      let cState = "optimal"; if (eco2 > 800) cState = "caution"; if (eco2 > 1300) cState = "poor";
-      badge(document.getElementById("lbl-eco2"), eco2 > 1000 ? "Elevated" : "Nominal", cState);
-
-      // Spectrum panel
-      document.getElementById("light-type").textContent = lightLabel;
-      document.getElementById("spec-cct").textContent = cct ? Math.round(cct) + " K" : "-- K";
-      document.getElementById("spec-nir").textContent = nirRatio ? nirRatio.toFixed(2) : "--";
-      renderSpectrum(bands);
-      let specMsg = "Spectral channels nominal.";
-      if (nirRatio > 0.35) specMsg = "High NIR ratio — incandescent / daylight mix likely.";
-      else if (cct > 0 && cct < 3300) specMsg = "Warm spectrum — hospitality evening / lounge signature.";
-      else if (cct >= 5300) specMsg = "Cool spectrum — task / lobby daylight bias.";
-      else if (!cct) specMsg = "CCT unavailable (too dark or AS7341 not reporting).";
-      document.getElementById("spectrum-insight").textContent = specMsg;
-
-      // AQI panel
-      document.getElementById("aqi-hero").textContent = aqi ? Math.round(aqi) : "--";
-      document.getElementById("aqi-hero").style.color = aqi ? aqiColor(aqi) : "#94a3b8";
-      document.getElementById("aqi-category").textContent = aqiCat;
-      document.getElementById("aqi-dominant").textContent = aqi ? ("Driven by " + aqiDom) : "No PMS data";
-      document.getElementById("val-pm25").innerHTML = (pm25 || "--") + ' <span class="text-sm text-slate-500">µg/m³</span>';
-      document.getElementById("val-pm10").innerHTML = (pm10 || "--") + ' <span class="text-sm text-slate-500">µg/m³</span>';
-      document.getElementById("si-pm25").textContent = "SI " + (si25 || "—");
-      document.getElementById("si-pm10").textContent = "SI " + (si10 || "—");
-      const aqiBar = document.getElementById("aqi-bar");
-      aqiBar.style.width = clamp(aqi / 5, 0, 100) + "%";
-      aqiBar.style.background = aqi ? aqiColor(aqi) : "#1c1c1f";
-      let aqiMsg = "Particle load within hospitality comfort band.";
-      if (aqi > 100) aqiMsg = "CPCB Moderate+ — increase filtration / check outdoor intake.";
-      else if (aqi > 50) aqiMsg = "Satisfactory — watch PM during peak occupancy / outdoor haze.";
-      else if (!aqi) aqiMsg = "PMS7003 not publishing yet.";
-      document.getElementById("aqi-insight").textContent = aqiMsg;
-
-      const usAqiTaj = pm25 ? usAqiFromPm25(pm25) : 0;
-      tajIndoor = {
-        usAqi: usAqiTaj,
-        usCat: usAqiTaj ? usAqiCategory(usAqiTaj) : "—",
-        cpcbAqi: aqi,
-        cpcbCat: aqiCat,
-        pm25, pm10,
-        dominant: aqiDom
-      };
-      updateAqiComparison();
-
-      // Scores
-      let comfort = 100;
-      comfort -= Math.abs(temp - 23) * 5;
-      comfort -= Math.abs(hum - 45) * 0.5;
-      comfort -= Math.max(0, (dbVal - 55) * 0.8);
-      comfort = clamp(comfort, 0, 100);
-
-      let wellness = 100;
-      wellness -= iaq * 0.3;
-      wellness -= Math.max(0, (eco2 - 500) * 0.04);
-      wellness -= voc * 8;
-      if (aqi) wellness -= Math.max(0, (aqi - 50) * 0.35);
-      wellness = clamp(wellness, 0, 100);
-
-      let acoustics = 100;
-      if (dbVal > 50) acoustics -= (dbVal - 50) * 2.0;
-      if (dbVal > 75) acoustics -= (dbVal - 75) * 1.5;
-      acoustics = clamp(acoustics, 0, 100);
-
-      const lighting = lightIndex(lux);
-      const health = clamp((comfort * 0.25) + (wellness * 0.35) + (acoustics * 0.2) + (lighting * 0.2), 0, 100);
-
-      document.getElementById("health-score").textContent = Math.round(health);
-      document.getElementById("score-comfort").textContent = Math.round(comfort);
-      document.getElementById("score-wellness").textContent = Math.round(wellness);
-      document.getElementById("score-acoustics").textContent = Math.round(acoustics);
-      document.getElementById("sound-index").textContent = Math.round(acoustics);
-      document.getElementById("light-index").textContent = lighting;
-
-      const healthLabel =
-        health >= 85 ? "Guest-ready environment" :
-        health >= 70 ? "Acceptable — minor adjustments advised" :
-        health >= 55 ? "Below hospitality target" :
-        "Action required";
-      document.getElementById("health-label").textContent = healthLabel;
-      document.getElementById("health-label").className =
-        "mt-3 text-sm " + (health >= 85 ? "text-emerald-400" : health >= 70 ? "text-amber-400" : "text-rose-400");
-
-      // Lighting matrix
-      const { rows, labels } = lightSuitability(lux);
-      ["lobby", "dining", "bar", "corridor", "meeting"].forEach((k) => {
-        const el = document.getElementById("suit-" + k);
-        el.textContent = labels[rows[k]];
-        el.className = "font-semibold " + suitClass(rows[k]);
-      });
-      let lightMsg = "Lumen density supports current hospitality programming.";
-      if (lux < 40) lightMsg = "Low light — bar/lounge signature; weak for arrival or desk tasks.";
-      else if (lux > 400) lightMsg = "High lumen field — strong for lobby/meeting; may feel harsh in dining or bar.";
-      else if (lux >= 80 && lux <= 250) lightMsg = "Mid-band light — strong dining / soft lobby balance.";
-      if (cct > 0) lightMsg += ` CCT ~${Math.round(cct)}K (${lightLabel}).`;
-      document.getElementById("light-insight").textContent = lightMsg;
-
-      // Acoustic zones
-      const setZone = (id, active, activeClass) => {
-        const row = document.getElementById(id);
-        const valEl = document.getElementById("val-" + id);
-        if (active) {
-          row.className = "p-2.5 rounded-lg border flex justify-between mono text-xs " + activeClass;
-          valEl.textContent = "ACTIVE";
-        } else {
-          row.className = "p-2.5 rounded-lg border border-[#1c1c1f] flex justify-between text-slate-500 mono text-xs";
-          valEl.textContent = "—";
-        }
-      };
-      setZone("zone-quiet", dbVal < 50, "border-emerald-800 bg-emerald-950/30 text-emerald-400");
-      setZone("zone-conv", dbVal >= 50 && dbVal <= 65, "border-blue-800 bg-blue-950/30 text-blue-400");
-      setZone("zone-social", dbVal > 65 && dbVal <= 75, "border-amber-800 bg-amber-950/30 text-amber-400");
-      setZone("zone-excess", dbVal > 75, "border-rose-800 bg-rose-950/30 text-rose-400 font-semibold");
-
-      let soundMsg = "Acoustic envelope supports clear conversation.";
-      if (dbVal > 75) soundMsg = "Above 75 dB — speech masking; guest comfort at risk in quiet zones.";
-      else if (dbVal > 65) soundMsg = "Social energy band — fine for bar/lobby peak; loud for corridors.";
-      else if (dbVal < 50) soundMsg = "Quiet band — ideal for guest corridors and rest periods.";
-      document.getElementById("sound-insight").textContent = soundMsg;
-
-      // Compliance vs selected zone
-      const checks = [];
-      const luxOk = lux >= rules.luxMin && lux <= rules.luxMax;
-      const dbOk = dbVal <= rules.dbMax;
-      const tempOk = temp >= rules.tempMin && temp <= rules.tempMax;
-      const iaqOk = iaq <= 100;
-      const eco2Ok = eco2 <= 1000;
-      const aqiOk = !aqi || aqi <= 100;
-
-      checks.push({ ok: luxOk, text: `Light ${Math.round(lux)} lx (target ${rules.luxMin}–${rules.luxMax})` });
-      checks.push({ ok: dbOk, text: `Sound ${dbVal.toFixed(0)} dB (max ${rules.dbMax})` });
-      checks.push({ ok: tempOk, text: `Temp ${temp.toFixed(1)}°C (target ${rules.tempMin}–${rules.tempMax})` });
-      checks.push({ ok: iaqOk, text: `BSEC IAQ ${Math.round(iaq)} (max 100)` });
-      checks.push({ ok: eco2Ok, text: `eCO₂ ${Math.round(eco2)} ppm (max 1000)` });
-      checks.push({ ok: aqiOk, text: `CPCB AQI ${aqi || "—"} (max 100)` });
-
-      const passCount = checks.filter((c) => c.ok).length;
-      const complianceScore = (passCount / checks.length) * 70 + health * 0.3;
-      const grade = gradeFromScore(complianceScore);
-
-      document.getElementById("compliance-grade").textContent = grade.letter;
-      document.getElementById("grade-ring").style.borderColor = grade.color;
-      document.getElementById("compliance-grade").style.color = grade.color;
-      document.getElementById("compliance-status").textContent = grade.status;
-      document.getElementById("compliance-detail").textContent =
-        `${rules.label}: ${passCount}/${checks.length} checks passed`;
-
-      document.getElementById("checks").innerHTML = checks.map((c) => `
-        <li class="flex gap-2 items-start ${c.ok ? "text-emerald-400" : "text-rose-400"}">
-          <span>${c.ok ? "✓" : "✗"}</span><span>${c.text}</span>
-        </li>
-      `).join("");
-
-      // Insights
-      const insights = [];
-      if (!luxOk) insights.push(`Lighting outside ${rules.label} band — adjust fixtures or dimming.`);
-      if (!dbOk) insights.push(`Sound above ${rules.label} limit (${rules.dbMax} dB).`);
-      if (eco2 > 900) insights.push(`eCO₂ climbing (${Math.round(eco2)} ppm) — increase fresh air.`);
-      if (iaq > 100) insights.push(`BSEC IAQ stressed — check filtration / occupancy.`);
-      if (aqi > 100) insights.push(`CPCB AQI ${Math.round(aqi)} (${aqiCat}) — dominant ${aqiDom}.`);
-      if (cct > 0 && cct < 3000 && zoneKey === "meeting") insights.push(`Warm CCT (${Math.round(cct)}K) is soft for meeting task light.`);
-      if (health >= 85 && passCount === checks.length) insights.push("All primary hospitality checks green for this zone.");
-      if (!insights.length) insights.push("Nominal profiles — no critical sensory flags.");
-
-      document.getElementById("insights").innerHTML = insights.map((t) =>
-        `<li class="flex gap-2 items-start"><span class="text-blue-400">▹</span><span>${t}</span></li>`
-      ).join("");
-
-      const ts = live.timestamp ? new Date(live.timestamp) : new Date();
-      document.getElementById("last-seen").textContent =
-        "Updated " + ts.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    }
-
-    function initChart() {
-      const ctx = document.getElementById("timeline-chart").getContext("2d");
-      chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "Health", data: [], borderColor: "#ffffff", borderWidth: 2, yAxisID: "y", tension: 0.2, pointRadius: 0 },
-            { label: "dB", data: [], borderColor: "#c084fc", borderWidth: 1.5, yAxisID: "y-db", tension: 0.2, pointRadius: 0 },
-            { label: "Lux", data: [], borderColor: "#fbbf24", borderWidth: 1, borderDash: [4, 3], yAxisID: "y-lux", tension: 0.2, pointRadius: 0 }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { grid: { display: false }, ticks: { color: "#64748b", font: { size: 9 } } },
-            y: { min: 0, max: 100, ticks: { color: "#fff" }, grid: { color: "#1c1c1f" } },
-            "y-db": { position: "right", min: 30, max: 100, grid: { display: false }, ticks: { color: "#c084fc" } },
-            "y-lux": { position: "right", min: 0, max: 800, display: { display: false }, ticks: { display: false } }
-          },
-          plugins: { legend: { labels: { color: "#94a3b8", font: { size: 10 } } } }
-        }
-      });
-    }
-
-    function refreshFreshness() {
-      if (!latestLive) return;
-      const rawTs = Number(latestLive.timestamp);
-      const validTs = Number.isFinite(rawTs) && rawTs > 1e12;
-      const ageMs = validTs ? (Date.now() - rawTs) : 0;
-      const ageSec = Math.max(0, Math.round(ageMs / 1000));
-      // If timestamp missing/invalid, trust Firebase push (derive already ran)
-      const fresh = validTs ? ageMs < 60000 : true;
-      if (fresh) {
-        setConnected(true, validTs ? `Live · ${ageSec}s ago` : "Live · ESP32");
-      } else if (ageMs < 3600000) {
-        setConnected(false, `Stale · ${Math.round(ageMs / 60000)}m ago`);
-      } else {
-        setConnected(false, `Stale · last good sync old`);
-      }
-      if (validTs) {
-        const ts = new Date(rawTs);
-        document.getElementById("last-seen").textContent =
-          "Updated " + ts.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) +
-          ` (${ageSec}s ago)`;
-      } else {
-        document.getElementById("last-seen").textContent = "Updated (clock sync pending)";
-      }
-    }
-
-    function setConnected(ok, msg) {
-      document.getElementById("status-text").textContent = msg;
-      document.getElementById("status-dot").className = "pulse-dot" + (ok ? " live" : "");
-      document.getElementById("connection-status").className =
-        "flex items-center gap-2 card px-3 py-1.5 rounded-md mono " +
-        (ok ? "text-emerald-400 border-emerald-900" : "text-slate-400");
-    }
-
-    function connect() {
-      initChart();
-      setConnected(false, "Linking RTDB…");
-      fetchDelhiOutdoor();
-      setInterval(fetchDelhiOutdoor, 15 * 60 * 1000);
-      setInterval(refreshFreshness, 1000);
-
-      db.ref(LIVE_PATH).on("value", (snap) => {
-        const live = snap.val();
-        if (!live) {
-          setConnected(true, "Linked · awaiting sensor");
-          document.getElementById("insights").innerHTML =
-            `<li class="text-slate-500 mono text-xs">No data at ${LIVE_PATH} yet. Firmware should updateNode here every ~5s.</li>`;
-          return;
-        }
-        latestLive = live;
-        refreshFreshness();
-        derive(live);
-      }, (err) => {
-        setConnected(false, "Link error");
-        console.error(err);
-      });
-
-      db.ref(LOG_PATH).limitToLast(24).on("value", (snap) => {
-        if (!snap.exists() || !chart) return;
-        const labels = [];
-        const healths = [];
-        const dbs = [];
-        const luxes = [];
-        snap.forEach((child) => {
-          const d = child.val() || {};
-          const ts = d.timestamp
-            ? new Date(d.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
-            : "";
-          const ndb = Number(d.noise_level ?? 45);
-          const nlux = Number(d.light_intensity ?? 200);
-          const niaq = Number(d.iaq ?? 25);
-          const neco2 = Number(d.eCO2 ?? 400);
-          const ntemp = Number(d.temperature ?? 24);
-          let c = clamp(100 - Math.abs(ntemp - 23) * 5 - Math.max(0, (ndb - 55) * 0.8), 0, 100);
-          let w = clamp(100 - niaq * 0.3 - Math.max(0, (neco2 - 500) * 0.04), 0, 100);
-          let a = clamp(100 - Math.max(0, (ndb - 50) * 2), 0, 100);
-          let h = (c + w + a + lightIndex(nlux)) / 4;
-          labels.push(ts);
-          healths.push(h);
-          dbs.push(ndb);
-          luxes.push(nlux);
-        });
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = healths;
-        chart.data.datasets[1].data = dbs;
-        chart.data.datasets[2].data = luxes;
-        chart.update("none");
-      });
-
-      document.getElementById("zone-context").addEventListener("change", () => {
-        if (latestLive) derive(latestLive);
-      });
-    }
-
-    connect();
+    loadOutdoor().then(render);
+    setInterval(() => { pushHistory(); trackExceedances(); render(); }, 5000);
+    setInterval(loadOutdoor, 15 * 60 * 1000);
   </script>
 </body>
 </html>

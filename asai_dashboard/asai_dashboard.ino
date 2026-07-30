@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
 #include <ArduinoJson.h>
 #include <time.h>
 #include "secrets.h"
@@ -16,16 +17,23 @@
 // Set to 1 if your module is BME688; 0 for BME680
 #define USE_BME688 0
 
+#define FW_VERSION            "v5.2.1"
+
 // Taj Delhi Firebase only — never Social (asaisocialproto2)
 #define ENABLE_CLOUD          1
 #define FIREBASE_DB_URL       "https://asai-taj-delhi-default-rtdb.asia-southeast1.firebasedatabase.app"
 #define RTDB_LIVE_PATH        "/ASAITajDelhi/live.json"
 #define RTDB_LOG_PATH         "/ASAITajDelhi/log.json"
-#define CLOUD_INTERVAL_MS     15000UL  // calmer cadence; HTTPS was dropping this AP
-#define LOG_EVERY_N_PUBLISHES 0        // disabled — second TLS call drops WiFi
+#define RTDB_OTA_PATH         "/ASAITajDelhi/ota.json"
+#define RTDB_OTA_STATUS_PATH  "/ASAITajDelhi/ota_status.json"
+#define CLOUD_INTERVAL_MS     15000UL
+#define OTA_CHECK_INTERVAL_MS 60000UL
 #define WIFI_CONNECT_TIMEOUT_MS 20000UL
 #define HTTP_TIMEOUT_MS       6000
+#define OTA_HTTP_TIMEOUT_MS   120000
 #define WIFI_RETRY_MS         8000UL
+#define LOG_POST_GAP_MS       200UL   // brief pause between live PUT and log POST
+#define OTA_MIN_HEAP          70000U
 
 
 // ---------- I2C ----------
@@ -64,10 +72,8 @@ bool bsecFresh = false;
 // BH1750
 float lux = -1;
 
-// AS7341
-// Dual-SMUX layout from Adafruit/AMS (12 slots):
-//   [0..3]=F1..F4, [4]=Clear0, [5]=NIR0,
-//   [6..9]=F5..F8, [10]=Clear1, [11]=NIR1
+// ---- AS7341 spectral, fixed 12-slot SMUX read ----
+// Cycle A (F1-F4): indices 0-5; Cycle B (F5-F8): indices 6-11.
 uint16_t fBand[8] = {0};
 uint16_t clear0 = 0, clear1 = 0, nir0 = 0, nir1 = 0;
 uint16_t clearCh = 0, nirCh = 0;
@@ -80,11 +86,57 @@ const char* bandName[8] = {
   "555 yellow", "590 orange", "630 red   ", "680 d.red "
 };
 
+// AS7341 flicker
+uint16_t flickerHz = 0;
+uint32_t lastFlickerMs = 0;
+const uint32_t FLICKER_INTERVAL_MS = 4000;
+
+// ---- CCT calibration: Philips WiZ tunable bulb, 50cm, fixed gain, 6-point sweep ----
+struct CalPoint {
+  float refCCT;
+  float redBlueRatio;   // f[6] (630nm) / f[1] (445nm)
+};
+CalPoint calTable[] = {
+  {2200, 17.61f},
+  {3200,  6.76f},
+  {4200,  3.99f},
+  {5200,  3.38f},
+  {6200,  2.68f},
+  {6500,  2.40f},
+};
+const int calCount = sizeof(calTable) / sizeof(calTable[0]);
+
+float calibratedCCT(uint16_t f[8]) {
+  float ratio = (float)f[6] / (float)max((int)f[1], 1);
+  float logR = log(ratio);
+  for (int i = 0; i < calCount - 1; i++) {
+    float r0 = calTable[i].redBlueRatio;
+    float r1 = calTable[i + 1].redBlueRatio;
+    if ((ratio <= r0 && ratio >= r1) || (ratio >= r0 && ratio <= r1)) {
+      float t = (logR - log(r0)) / (log(r1) - log(r0));
+      return calTable[i].refCCT + t * (calTable[i + 1].refCCT - calTable[i].refCCT);
+    }
+  }
+  return (ratio > calTable[0].redBlueRatio) ? calTable[0].refCCT : calTable[calCount - 1].refCCT;
+}
+
+const char* lightType(float cct, float nirR) {
+  if (nirR > 0.35f) return "incand/sun";
+  if (cct <= 0)      return "unknown";
+  if (cct < 3300)    return "warm LED";
+  if (cct < 5300)    return "neutral LED";
+  return "cool LED";
+}
+
 // BSEC
 float iaq = 0, co2eq = 0, vocEq = 0, tComp = 0, rhComp = 0;
 uint8_t iaqAccuracy = 0;
 uint8_t bsecState[BSEC_MAX_STATE_BLOB_SIZE];
 uint32_t lastStateSaveMs = 0;
+
+// accuracy transition tracking
+uint8_t lastLoggedAccuracy = 255;
+uint32_t bootMillis = 0;
 
 // PMS / CPCB AQI
 uint16_t pm25 = 0, pm10 = 0;
@@ -97,17 +149,24 @@ const char* aqiDominant = "—";
 float dbfs = -120.0f;
 float approxDba = 0;
 
-// OLED page rotate
+// OLED page rotate — 5 pages: IAQ, CPCB AQI, light+mic, spectrum, flicker
 uint8_t oledPage = 0;
+const uint8_t OLED_PAGE_COUNT = 5;
+const uint32_t OLED_PAGE_INTERVAL_MS = 3000UL;  // was ~1s; triple for readability
+uint32_t lastOledPageMs = 0;
 
 // Cloud (WiFi → Taj RTDB via HTTPS REST — same as serial_to_taj.py)
 #if ENABLE_CLOUD
 uint32_t lastCloudMs = 0;
+uint32_t lastOtaCheckMs = 0;
 uint32_t lastWifiRetryMs = 0;
 bool cloudReady = false;
 bool ntpReady = false;
 uint16_t publishCount = 0;
 uint8_t httpFailStreak = 0;
+String lastOtaIdHandled;
+String otaState = "idle";
+String otaMessage = "";
 #endif
 
 // LP @ 3.3V — must match BSEC_SAMPLE_RATE_LP
@@ -163,6 +222,14 @@ const char* iaqLabel(float v) {
 bool ackAt(uint8_t addr) {
   Wire.beginTransmission(addr);
   return Wire.endTransmission() == 0;
+}
+
+void formatElapsed(uint32_t ms, char* buf, size_t bufLen) {
+  uint32_t totalSec = ms / 1000;
+  uint32_t h = totalSec / 3600;
+  uint32_t m = (totalSec % 3600) / 60;
+  uint32_t s = totalSec % 60;
+  snprintf(buf, bufLen, "%02lu:%02lu:%02lu", (unsigned long)h, (unsigned long)m, (unsigned long)s);
 }
 
 // ================= BH1750 =================
@@ -227,32 +294,10 @@ float micDbfs() {
   return 20.0f * log10f(rms / 8388608.0f + 1e-12f);
 }
 
-// ================= AS7341 spectral =================
-float estimateCCT(uint16_t f[8]) {
-  float X = 0.30f * f[4] + 0.85f * f[5] + 1.00f * f[6] + 0.45f * f[7] + 0.15f * f[1];
-  float Y = 0.25f * f[3] + 1.00f * f[4] + 0.75f * f[5] + 0.30f * f[6];
-  float Z = 1.00f * f[1] + 0.90f * f[2] + 0.35f * f[0] + 0.10f * f[3];
-  float total = X + Y + Z;
-  if (total < 1.0f) return 0;
-  float x = X / total, y = Y / total;
-  float n = (x - 0.3320f) / (0.1858f - y);
-  float cct = 449.0f * n * n * n + 3525.0f * n * n + 6823.3f * n + 5520.33f;
-  return (cct > 1000 && cct < 20000) ? cct : 0;
-}
-
-const char* lightType(float cct, float nirR) {
-  if (nirR > 0.35f) return "incand/sun";
-  if (cct <= 0)     return "unknown";
-  if (cct < 3300)   return "warm LED";
-  if (cct < 5300)   return "neutral LED";
-  return "cool LED";
-}
-
+// ================= AS7341 spectral (fixed 12-slot read) + flicker =================
 void as7341Poll() {
   if (!asOK) return;
 
-  // Explicit 12-slot buffer — do NOT rely on getChannel() enum layout.
-  // Cycle A (F1–F4): indices 0–5; Cycle B (F5–F8): indices 6–11.
   uint16_t readings[12];
   if (!as7341.readAllChannels(readings)) return;
 
@@ -260,16 +305,16 @@ void as7341Poll() {
   fBand[1] = readings[1];   // F2 445
   fBand[2] = readings[2];   // F3 480
   fBand[3] = readings[3];   // F4 515
-  clear0   = readings[4];   // Clear from cycle A
-  nir0     = readings[5];   // NIR   from cycle A
+  clear0   = readings[4];
+  nir0     = readings[5];
   fBand[4] = readings[6];   // F5 555
   fBand[5] = readings[7];   // F6 590
   fBand[6] = readings[8];   // F7 630
   fBand[7] = readings[9];   // F8 680
-  clear1   = readings[10];  // Clear from cycle B
-  nir1     = readings[11];  // NIR   from cycle B
+  clear1   = readings[10];
+  nir1     = readings[11];
 
-  // Matched Clear/NIR from the brighter Clear cycle (same SMUX integration).
+  // Use the brighter Clear cycle's matched Clear/NIR pair
   if (clear0 >= clear1) {
     clearCh = clear0;
     nirCh   = nir0;
@@ -285,13 +330,12 @@ void as7341Poll() {
     if (fBand[i] > maxF) maxF = fBand[i];
   }
 
-  // AS7341 Clear photodiodes are smaller than the dual-diode F channels, so
-  // Clear can legitimately sit below a peaked F band. For nir/clear source
-  // classification, floor the denominator so a weak Clear can't fake sunlight.
+  // Clear photodiodes are smaller than the dual-diode F channels, so Clear
+  // can legitimately sit below a peaked F band. Floor the ratio denominator
+  // so a weak Clear can't fake a sunlight/incandescent NIR signature.
   clearAnomaly = (clearCh * 2 < maxF);
   uint16_t clearForRatio = clearCh;
   if (clearAnomaly) {
-    // Blend Clear with a visible-band proxy (sum/4 ≈ broadband scale).
     uint32_t visProxy32 = sumF / 4u;
     uint16_t visProxy = (visProxy32 > 65535u) ? 65535u : (uint16_t)visProxy32;
     if (visProxy > clearForRatio) clearForRatio = visProxy;
@@ -301,9 +345,24 @@ void as7341Poll() {
   for (int i = 0; i < 8; i++) if (fBand[i] > 60000) asSat = true;
   if (clear0 > 60000 || clear1 > 60000) asSat = true;
 
-  cctK = estimateCCT(fBand);
+  cctK = asSat ? 0 : calibratedCCT(fBand);
   nirRatio = clearForRatio ? (float)nirCh / clearForRatio : 0;
   lightLabel = lightType(cctK, nirRatio);
+}
+
+void flickerPoll() {
+  if (!asOK) return;
+  if (millis() - lastFlickerMs < FLICKER_INTERVAL_MS) return;
+  lastFlickerMs = millis();
+  flickerHz = as7341.detectFlickerHz();
+}
+
+const char* flickerVerdict() {
+  if (!asOK)               return "n/a";
+  if (flickerHz == 0)      return "clean (DC-driven)";
+  if (flickerHz == 1)      return "flicker present, freq unclear";
+  if (flickerHz == 100 || flickerHz == 120) return "mains flicker — driver quality issue";
+  return "flicker detected";
 }
 
 // ================= PMS7003 =================
@@ -383,6 +442,23 @@ void newDataCallback(const bme68xData data, const bsecOutputs outputs, Bsec2 bse
   }
   bsecFresh = true;
 
+  if (iaqAccuracy != lastLoggedAccuracy) {
+    char elapsed[12];
+    formatElapsed(millis() - bootMillis, elapsed, sizeof(elapsed));
+    const char* meaning;
+    switch (iaqAccuracy) {
+      case 0: meaning = "unreliable — heater still stabilizing, ignore IAQ number"; break;
+      case 1: meaning = "low — IAQ moving but not yet calibrated"; break;
+      case 2: meaning = "medium — calibration in progress"; break;
+      case 3: meaning = "HIGH — fully calibrated, IAQ trustworthy"; break;
+      default: meaning = "unknown"; break;
+    }
+    Serial.printf(">>> [ACCURACY CHANGE] t=%s  %u -> %u  (%s)\n",
+                  elapsed, lastLoggedAccuracy == 255 ? 0 : lastLoggedAccuracy,
+                  iaqAccuracy, meaning);
+    lastLoggedAccuracy = iaqAccuracy;
+  }
+
   if (iaqAccuracy == 3 &&
       (lastStateSaveMs == 0 || millis() - lastStateSaveMs > 6UL * 3600UL * 1000UL)) {
     saveBsecState();
@@ -400,6 +476,7 @@ bool bsecInit() {
     Serial.printf("[BSEC] setConfig failed (%d)\n", envSensor.status);
     return false;
   }
+  Serial.println("[BSEC] config loaded OK");
 
   bsecSensor sensorList[] = {
     BSEC_OUTPUT_IAQ,
@@ -418,6 +495,7 @@ bool bsecInit() {
   }
 
   envSensor.setTemperatureOffset(TEMP_OFFSET_LP);
+  Serial.printf("[BSEC] temp offset: %.2f\n", TEMP_OFFSET_LP);
   envSensor.attachCallback(newDataCallback);
   loadBsecState();
   Serial.println("[BSEC] running — LP mode ~3s");
@@ -443,7 +521,8 @@ void drawOled(bool pmsFresh) {
     u8g2.drawStr(0, 36, l);
     snprintf(l, sizeof(l), "%.1fC  %.0f%%RH", tComp, rhComp);
     u8g2.drawStr(0, 48, l);
-    u8g2.drawStr(0, 62, "1/4 IAQ");
+    u8g2.drawStr(0, 62, "1/5 IAQ");
+
   } else if (oledPage == 1) {
     if (pmsFresh) {
       u8g2.setFont(u8g2_font_logisoso24_tr);
@@ -460,14 +539,15 @@ void drawOled(bool pmsFresh) {
       u8g2.drawStr(0, 30, "AQI: waiting");
       u8g2.drawStr(0, 48, "for PMS data...");
     }
+
   } else if (oledPage == 2) {
     u8g2.setFont(u8g2_font_6x10_tr);
     snprintf(l, sizeof(l), bhOK ? "Lux %.0f" : "Lux ----", lux);
     u8g2.drawStr(0, 10, l);
     if (asOK) {
-      if (asSat) snprintf(l, sizeof(l), "AS7341 SATURATED");
+      if (asSat)     snprintf(l, sizeof(l), "AS7341 SATURATED");
       else if (cctK) snprintf(l, sizeof(l), "%.0fK %s", cctK, lightLabel);
-      else snprintf(l, sizeof(l), "CCT too dark");
+      else           snprintf(l, sizeof(l), "CCT too dark");
       u8g2.drawStr(0, 22, l);
       snprintf(l, sizeof(l), "C%u N%u r%.2f", clearCh, nirCh, nirRatio);
       u8g2.drawStr(0, 34, l);
@@ -477,8 +557,9 @@ void drawOled(bool pmsFresh) {
     if (micOK) snprintf(l, sizeof(l), "Mic ~%.0f dBA (%.0f FS)", approxDba, dbfs);
     else       snprintf(l, sizeof(l), "Mic ----");
     u8g2.drawStr(0, 48, l);
-    u8g2.drawStr(0, 62, "3/4 light+mic");
-  } else {
+    u8g2.drawStr(0, 62, "3/5 light+mic");
+
+  } else if (oledPage == 3) {
     uint16_t mx = 1;
     for (int i = 0; i < 8; i++) if (fBand[i] > mx) mx = fBand[i];
     for (int i = 0; i < 8; i++) {
@@ -492,6 +573,19 @@ void drawOled(bool pmsFresh) {
     else if (cctK)  snprintf(l, sizeof(l), "%.0fK %s", cctK, lightLabel);
     else            snprintf(l, sizeof(l), "too dark");
     u8g2.drawStr(0, 64, l);
+
+  } else {
+    u8g2.setFont(u8g2_font_7x14_tr);
+    u8g2.drawStr(0, 16, "Light flicker");
+    u8g2.setFont(u8g2_font_logisoso20_tr);
+    if (!asOK) snprintf(l, sizeof(l), "n/a");
+    else if (flickerHz == 0) snprintf(l, sizeof(l), "clean");
+    else if (flickerHz == 1) snprintf(l, sizeof(l), "flicker");
+    else snprintf(l, sizeof(l), "%uHz", flickerHz);
+    u8g2.drawStr(0, 40, l);
+    u8g2.setFont(u8g2_font_6x10_tr);
+    u8g2.drawStr(0, 54, flickerVerdict());
+    u8g2.drawStr(0, 62, "5/5 flicker");
   }
 
   u8g2.sendBuffer();
@@ -614,6 +708,8 @@ String buildLiveJson() {
       doc["cct"] = cctK;
       doc["light_type"] = lightLabel;
     }
+    doc["flicker_hz"] = flickerHz;
+    doc["flicker"] = flickerVerdict();
   }
 
   if (bsecOK) {
@@ -644,6 +740,8 @@ String buildLiveJson() {
 
   doc["timestamp"] = (double)cloudTimestampMs();
   doc["source"] = "esp32_wifi";
+  doc["fw"] = FW_VERSION;
+  doc["ota_state"] = otaState;
   doc["wifi_rssi"] = WiFi.RSSI();
 
   String out;
@@ -674,6 +772,161 @@ int httpJson(const char* method, const char* path, const String& body) {
   return code;
 }
 
+String httpGetBody(const char* path, int* outCode) {
+  *outCode = -1;
+  if (WiFi.status() != WL_CONNECTED) {
+    *outCode = -100;
+    return "";
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(HTTP_TIMEOUT_MS / 1000);
+
+  HTTPClient http;
+  http.setReuse(false);
+  http.setTimeout(HTTP_TIMEOUT_MS);
+  http.setConnectTimeout(HTTP_TIMEOUT_MS);
+
+  String url = String(FIREBASE_DB_URL) + path;
+  if (!http.begin(client, url)) {
+    *outCode = -1;
+    return "";
+  }
+  http.addHeader("Connection", "close");
+  *outCode = http.GET();
+  String body = (*outCode > 0) ? http.getString() : String("");
+  http.end();
+  client.stop();
+  return body;
+}
+
+void reportOtaStatus(const char* state, const char* message, const String& reqId) {
+  otaState = state;
+  otaMessage = message;
+  JsonDocument doc;
+  doc["fw"] = FW_VERSION;
+  doc["state"] = state;
+  doc["message"] = message;
+  doc["id"] = reqId;
+  doc["updated_at"] = (double)cloudTimestampMs();
+  String body;
+  serializeJson(doc, body);
+  int code = httpJson("PUT", RTDB_OTA_STATUS_PATH, body);
+  Serial.printf("ota: status -> %s (%s) HTTP %d\n", state, message, code);
+}
+
+void markOtaHandled(const String& reqId) {
+  lastOtaIdHandled = reqId;
+  prefs.begin("ota", false);
+  prefs.putString("last_id", reqId);
+  prefs.end();
+}
+
+void loadOtaHandledId() {
+  prefs.begin("ota", true);
+  lastOtaIdHandled = prefs.getString("last_id", "");
+  prefs.end();
+}
+
+bool runHttpsOta(const String& url) {
+  Serial.printf("ota: downloading %s\n", url.c_str());
+  WiFiClientSecure client;
+  client.setInsecure();
+  client.setTimeout(OTA_HTTP_TIMEOUT_MS / 1000);
+
+  httpUpdate.rebootOnUpdate(true);
+  httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  httpUpdate.setLedPin(-1, HIGH);
+
+  t_httpUpdate_return ret = httpUpdate.update(client, url);
+  switch (ret) {
+    case HTTP_UPDATE_FAILED:
+      Serial.printf("ota: FAILED (%d): %s\n",
+                    httpUpdate.getLastError(),
+                    httpUpdate.getLastErrorString().c_str());
+      return false;
+    case HTTP_UPDATE_NO_UPDATES:
+      Serial.println("ota: no update (server said current)");
+      return false;
+    case HTTP_UPDATE_OK:
+      Serial.println("ota: OK — rebooting");
+      return true;
+  }
+  return false;
+}
+
+void checkOtaCommand() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  uint32_t heap = ESP.getFreeHeap();
+  int code = 0;
+  String body = httpGetBody(RTDB_OTA_PATH, &code);
+  if (code < 200 || code >= 300) {
+    Serial.printf("ota: poll fail HTTP %d\n", code);
+    return;
+  }
+  if (body.length() == 0 || body == "null") return;
+
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    Serial.printf("ota: bad JSON (%s)\n", err.c_str());
+    return;
+  }
+
+  const char* cmd = doc["cmd"] | "idle";
+  String reqId = doc["id"] | "";
+  if (reqId.length() == 0) {
+    // fall back to fw+url fingerprint so old commands still dedupe
+    reqId = String(cmd) + "|" + String(doc["fw"] | "") + "|" + String(doc["url"] | "");
+  }
+  if (reqId == lastOtaIdHandled) return;
+
+  if (strcmp(cmd, "idle") == 0 || strcmp(cmd, "none") == 0) return;
+
+  if (strcmp(cmd, "reboot") == 0) {
+    reportOtaStatus("rebooting", "remote reboot requested", reqId);
+    markOtaHandled(reqId);
+    delay(500);
+    ESP.restart();
+    return;
+  }
+
+  if (strcmp(cmd, "update") != 0) {
+    Serial.printf("ota: ignore unknown cmd '%s'\n", cmd);
+    return;
+  }
+
+  const char* targetFw = doc["fw"] | "";
+  const char* url = doc["url"] | "";
+  if (url[0] == '\0') {
+    reportOtaStatus("failed", "update missing url", reqId);
+    markOtaHandled(reqId);
+    return;
+  }
+  if (targetFw[0] != '\0' && strcmp(targetFw, FW_VERSION) == 0) {
+    reportOtaStatus("ok", "already on requested fw", reqId);
+    markOtaHandled(reqId);
+    return;
+  }
+  if (heap < OTA_MIN_HEAP) {
+    Serial.printf("ota: defer — low heap %u\n", heap);
+    reportOtaStatus("waiting", "low heap, will retry", reqId);
+    return;  // do not mark handled — retry later
+  }
+
+  reportOtaStatus("downloading", url, reqId);
+  bool ok = runHttpsOta(String(url));
+  if (!ok) {
+    char msg[96];
+    snprintf(msg, sizeof(msg), "HTTPUpdate failed (%d)", httpUpdate.getLastError());
+    reportOtaStatus("failed", msg, reqId);
+    markOtaHandled(reqId);
+  }
+  // success path reboots inside HTTPUpdate
+}
+
 void forceWifiReconnect() {
   Serial.println("WiFi: force reconnect after HTTP failures");
   cloudReady = false;
@@ -701,9 +954,21 @@ void publishToTaj() {
   if (putCode >= 200 && putCode < 300) {
     httpFailStreak = 0;
     publishCount++;
-    // Live only — a second TLS POST right after PUT was dropping WiFi on this AP
-    Serial.printf("cloud: Taj OK  HTTP %d  T=%.1f lx=%.0f dB=%.0f RSSI=%d heap=%u\n",
-                  putCode, tComp, lux, approxDba, WiFi.RSSI(), ESP.getFreeHeap());
+
+    // Every successful live sample is also appended to history
+    delay(LOG_POST_GAP_MS);
+    int postCode = httpJson("POST", RTDB_LOG_PATH, body);
+    if (postCode < 200 || postCode >= 300) {
+      Serial.printf("cloud: log POST fail HTTP %d — retrying once\n", postCode);
+      delay(LOG_POST_GAP_MS);
+      postCode = httpJson("POST", RTDB_LOG_PATH, body);
+    }
+
+    Serial.printf("cloud: Taj OK  live=%d log=%d  T=%.1f lx=%.0f dB=%.0f RSSI=%d\n",
+                  putCode, postCode, tComp, lux, approxDba, WiFi.RSSI());
+    if (postCode < 200 || postCode >= 300) {
+      Serial.println("cloud: WARNING — live updated but history log failed");
+    }
   } else {
     httpFailStreak++;
     Serial.printf("cloud: Taj fail — HTTP %d  streak=%u  WiFi=%d  heap=%u\n",
@@ -727,8 +992,12 @@ void setup() {
   Wire.begin(PIN_SDA, PIN_SCL);
   pmsSerial.begin(9600, SERIAL_8N1, PMS_RX_PIN, PMS_TX_PIN);
 
-  Serial.println("=== ASAI live dashboard v4.2 (WiFi auto-reconnect) ===");
+  bootMillis = millis();
+
+  Serial.printf("=== ASAI live dashboard %s (CCT + flicker + cloud + OTA) ===\n", FW_VERSION);
   Serial.println("Target: asai-taj-delhi /ASAITajDelhi — Social untouched");
+  Serial.println("[ACCURACY] watching for acc 0->1->2->3 transitions...");
+  Serial.println("[OTA] polls /ASAITajDelhi/ota every 60s");
 
   oledOK = (ackAt(0x3C) || ackAt(0x3D)) && u8g2.begin();
   bhOK   = bh1750Init();
@@ -737,8 +1006,9 @@ void setup() {
   micOK  = inmp441Init();
 
   if (asOK) {
+    // gain fixed to match the CCT calibration sweep — do not change without recalibrating
     as7341.setATIME(100);
-    as7341.setASTEP(999);   // ~278ms integration, better SNR
+    as7341.setASTEP(999);
     as7341.setGain(AS7341_GAIN_64X);
   }
 
@@ -746,9 +1016,12 @@ void setup() {
                 oledOK, bhOK, asOK, bsecOK, micOK);
 
 #if ENABLE_CLOUD
+  loadOtaHandledId();
   initWiFi();
   if (WiFi.status() == WL_CONNECTED) initNtp();
   lastCloudMs = millis();
+  lastOtaCheckMs = millis();
+  reportOtaStatus("idle", "booted", lastOtaIdHandled);
 #endif
 }
 
@@ -767,6 +1040,10 @@ void loop() {
     lastCloudMs = millis();
     publishToTaj();
   }
+  if (millis() - lastOtaCheckMs >= OTA_CHECK_INTERVAL_MS) {
+    lastOtaCheckMs = millis();
+    checkOtaCommand();
+  }
 #endif
 
   static uint32_t lastSample = 0;
@@ -775,6 +1052,8 @@ void loop() {
 
   lux = bhOK ? bh1750Read() : -1;
   as7341Poll();
+  flickerPoll();
+
   if (micOK) {
     dbfs = micDbfs();
     approxDba = dbfs + MIC_DB_OFFSET;
@@ -796,15 +1075,15 @@ void loop() {
                     bar, "##############################",
                     30 - bar, "                              ", fBand[i]);
     }
-    // Print both SMUX-cycle Clear/NIR so index bugs are obvious
     Serial.printf("Clear0 %u  Clear1 %u  -> used %u\n", clear0, clear1, clearCh);
     Serial.printf("NIR0 %u  NIR1 %u  -> used %u\n", nir0, nir1, nirCh);
     Serial.printf("nir/clear %.2f", nirRatio);
     if (clearAnomaly) Serial.print("  [Clear<maxF: ratio uses vis proxy]");
     Serial.println();
-    if (asSat)      Serial.println("!! SATURATED — drop gain or move from bright light");
-    else if (cctK)  Serial.printf("CCT ~%.0fK  ->  %s\n", cctK, lightLabel);
-    else            Serial.println("CCT: n/a (too dark)");
+    if (asSat)     Serial.println("!! SATURATED — drop gain or move from bright light");
+    else if (cctK) Serial.printf("CCT ~%.0fK (calibrated)  ->  %s\n", cctK, lightLabel);
+    else           Serial.println("CCT: n/a (too dark)");
+    Serial.printf("Flicker: %s\n", flickerVerdict());
   }
 
   if (bsecOK) {
@@ -822,5 +1101,8 @@ void loop() {
   if (micOK) Serial.printf("Mic %.1f dBFS (~%.0f dBA)\n", dbfs, approxDba);
 
   drawOled(pmsFresh);
-  oledPage = (oledPage + 1) & 0x03;
+  if (millis() - lastOledPageMs >= OLED_PAGE_INTERVAL_MS) {
+    lastOledPageMs = millis();
+    oledPage = (oledPage + 1) % OLED_PAGE_COUNT;
+  }
 }

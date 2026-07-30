@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ASAI Taj Delhi — Claude Briefing 22 Jul 2026</title>
+  <style>
+    @page { size: A4; margin: 16mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      color: #111;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 16pt; margin: 0 0 4pt; }
+    h2 {
+      font-size: 11.5pt;
+      margin: 16pt 0 6pt;
+      padding-bottom: 3pt;
+      border-bottom: 1.5px solid #111;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 10pt; margin: 10pt 0 4pt; page-break-after: avoid; }
+    p, li { margin: 0 0 5pt; }
+    ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+    .meta { color: #444; font-size: 9pt; margin-bottom: 12pt; }
+    .box {
+      border: 1px solid #ccc;
+      background: #f7f7f7;
+      padding: 7pt 9pt;
+      margin: 6pt 0;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 8pt;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6pt 0 10pt;
+      font-size: 9pt;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4pt 5pt;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eee; }
+    .ok {
+      background: #eefaf1;
+      border-left: 3px solid #1a7f37;
+      padding: 6pt 8pt;
+      margin: 8pt 0;
+      font-size: 9pt;
+    }
+    .warn {
+      background: #fff8e6;
+      border-left: 3px solid #c9a227;
+      padding: 6pt 8pt;
+      margin: 8pt 0;
+      font-size: 9pt;
+    }
+    .bad {
+      background: #fef2f2;
+      border-left: 3px solid #b91c1c;
+      padding: 6pt 8pt;
+      margin: 8pt 0;
+      font-size: 9pt;
+    }
+    .foot {
+      margin-top: 16pt;
+      padding-top: 8pt;
+      border-top: 1px solid #ddd;
+      font-size: 8pt;
+      color: #666;
+    }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 8pt; }
+  </style>
+</head>
+<body>
+
+  <h1>ASAI Taj Delhi — Full Claude Briefing</h1>
+  <p class="meta">
+    Updated: Wednesday, 22 July 2026 · Project: <strong>asai-taj-delhi</strong> ·
+    Account: melvai@gmail.com · Repo: <a href="https://github.com/elonmuskisgod/asai-taj-delhi">github.com/elonmuskisgod/asai-taj-delhi</a><br>
+    Purpose: Single replication + handoff record for Claude (Firebase, firmware, WhatsApp, fleet concept). Supersedes partial 21 Jul work log for post-Twilio state.
+  </p>
+
+  <div class="ok">
+    <strong>Current status:</strong> One ESP32-S3 node publishes WiFi-direct to Taj RTDB every ~15s
+    (<code>live</code> PUT + <code>log</code> POST). Live dashboard on Hosting. WhatsApp PM alerts via
+    Twilio + Cloud Function <code>onLiveWriteAlert</code> (Blaze). Social Firebase untouched.
+  </div>
+
+  <div class="bad">
+    <strong>ASAI principle (non-negotiable):</strong> ASAI is about <em>all</em> data, not only alerts or
+    aberrant readings. Never remove, thin, or skip history/logging to improve WiFi/cost/latency without
+    explicit user approval. Prefer retry/queue/reconnect over dropping data.
+  </div>
+
+  <h2>1. URLs &amp; accounts</h2>
+  <table>
+    <tr><th>What</th><th>Value</th></tr>
+    <tr><td>Live dashboard</td><td>https://asai-taj-delhi.web.app</td></tr>
+    <tr><td>Firebase console</td><td>https://console.firebase.google.com/project/asai-taj-delhi/overview</td></tr>
+    <tr><td>RTDB</td><td>https://asai-taj-delhi-default-rtdb.asia-southeast1.firebasedatabase.app</td></tr>
+    <tr><td>GitHub</td><td>https://github.com/elonmuskisgod/asai-taj-delhi</td></tr>
+    <tr><td>Local path</td><td><code>/Users/melroydmello/Documents/Arduino/asai-taj-delhi</code></td></tr>
+    <tr><td>Billing</td><td>Blaze (required for Cloud Functions → Twilio)</td></tr>
+    <tr><td>Do not use</td><td>Social / <code>asaisocialproto2</code> / Social firmware</td></tr>
+  </table>
+
+  <h2>2. Repo layout</h2>
+  <table>
+    <tr><th>Path</th><th>Role</th></tr>
+    <tr><td><code>asai_dashboard/asai_dashboard.ino</code></td><td>Firmware v4.3 — sensors + OLED + WiFi HTTPS to Taj</td></tr>
+    <tr><td><code>asai_dashboard/secrets.h</code></td><td>WiFi SSID/password (gitignored)</td></tr>
+    <tr><td><code>public/index.html</code></td><td>Live single-node dashboard (Hosting)</td></tr>
+    <tr><td><code>functions/index.js</code></td><td>Cloud Function WhatsApp alerts (Twilio)</td></tr>
+    <tr><td><code>scripts/serial_to_taj.py</code></td><td>USB serial → RTDB fallback</td></tr>
+    <tr><td><code>scripts/whatsapp_watch.js</code></td><td>Local Twilio watcher (no Blaze needed)</td></tr>
+    <tr><td><code>scripts/seed_alerts_config.js</code></td><td>Seed PM phones + thresholds</td></tr>
+    <tr><td><code>scripts/deploy_whatsapp_function.sh</code></td><td>Secrets + <code>firebase deploy --only functions</code></td></tr>
+    <tr><td><code>docs/fleet-intelligence-mockup.html</code></td><td>Static concept: 10-unit fleet intelligence</td></tr>
+    <tr><td><code>docs/TWILIO_WHATSAPP_ALERTS.md</code></td><td>Twilio sandbox setup</td></tr>
+    <tr><td><code>.cursor/rules/asai-data-first.mdc</code></td><td>Project rule: never compromise data</td></tr>
+  </table>
+
+  <h2>3. Hardware &amp; data path</h2>
+  <p>ESP32-S3 · BH1750 · AS7341 · BME680/BSEC · INMP441 · PMS7003 · OLED</p>
+  <ol>
+    <li>Sensors sampled locally (~1s UI/Serial cadence)</li>
+    <li>Every <strong>~15s</strong>: HTTPS PUT <code>/ASAITajDelhi/live.json</code> then POST <code>/ASAITajDelhi/log.json</code> (same payload)</li>
+    <li>Dashboard listens to <code>live</code>; timeline uses <code>log</code></li>
+    <li>Cloud Function on <code>live</code> write → threshold check → Twilio WhatsApp</li>
+  </ol>
+  <div class="box">#define CLOUD_INTERVAL_MS 15000UL
+// publishToTaj(): PUT live → delay 200ms → POST log (retry once on log fail)
+// source field: "esp32_wifi"
+// WiFi: DMello_4G (2.4 GHz only; ESP32 cannot use 5 GHz)</div>
+  <p>Orange flash in RTDB console every ~15s on <code>live</code> is expected. <code>log</code> should grow a new child each cycle (restored in v4.3 after a mistaken temporary disable — do not remove again).</p>
+
+  <h2>4. RTDB paths</h2>
+  <table>
+    <tr><th>Path</th><th>Write</th><th>Purpose</th></tr>
+    <tr><td><code>/ASAITajDelhi/live</code></td><td>ESP PUT ~15s</td><td>Current snapshot</td></tr>
+    <tr><td><code>/ASAITajDelhi/log</code></td><td>ESP POST every sample</td><td>Full history (all data)</td></tr>
+    <tr><td><code>/ASAITajDelhi/delhi_outdoor</code></td><td>manual/seed</td><td>Outdoor US AQI compare</td></tr>
+    <tr><td><code>/ASAITajDelhi/alerts_config</code></td><td>seed / console</td><td>Thresholds + managers</td></tr>
+    <tr><td><code>/ASAITajDelhi/alerts_state</code></td><td>Cloud Function</td><td>Cooldownounce / last-sent</td></tr>
+    <tr><td><code>/ASAITajDelhi/alerts_log</code></td><td>Cloud Function</td><td>WhatsApp send history</td></tr>
+  </table>
+
+  <h3>alerts_config (live RTDB)</h3>
+  <div class="box">{
+  "enabled": true,
+  "cooldown_ms": 10000,
+  "thresholds": {
+    "aqi": 200,
+    "iaq": 200,
+    "noise_level": 90,
+    "temperature_high": 40,
+    "temperature_low": 15
+  },
+  "managers": [
+    { "name": "Melroy", "phone": "+919833020332", "enabled": true }
+  ]
+}</div>
+  <p class="warn">Cooldown 10s is for testing; pilot should use <code>1800000</code> (30 min).</p>
+  <div class="warn">
+    Firebase console: after editing a value you must confirm with the grey control (not only click away) or the edit reverts.
+  </div>
+
+  <h2>5. Twilio WhatsApp (full story)</h2>
+  <h3>What was built</h3>
+  <ul>
+    <li>Twilio account: Direct brand · With code · Notifications</li>
+    <li>WhatsApp <strong>Sandbox</strong> sender typically <code>whatsapp:+14155238886</code></li>
+    <li>Secrets in Firebase Secret Manager: <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code>, <code>TWILIO_WHATSAPP_FROM</code></li>
+    <li>Local secrets file: <code>scripts/twilio.env</code> (gitignored)</li>
+    <li>Function: <code>onLiveWriteAlert</code> · region <code>asia-southeast1</code> · instance <code>asai-taj-delhi-default-rtdb</code></li>
+  </ul>
+
+  <h3>Why Blaze</h3>
+  <p>Spark cannot make outbound HTTPS from Cloud Functions. Project upgraded to Blaze (pay-as-you-go; free quotas cover light use). Twilio WhatsApp is billed separately by Twilio (sandbox free for testing).</p>
+
+  <h3>Sandbox constraints (critical)</h3>
+  <ul>
+    <li>Recipient must WhatsApp <code>join &lt;code&gt;</code> to the sandbox number first</li>
+    <li>Error <strong>63015</strong> = number not joined (or session expired ~3 days)</li>
+    <li>Only joined numbers receive messages; Twilio branding on sandbox</li>
+    <li>Production later: Meta/Twilio WhatsApp Business sender + templates</li>
+  </ul>
+
+  <h3>Proven end-to-end</h3>
+  <p>Alert delivered and Twilio status <code>read</code> for noise threshold test. Example body:</p>
+  <div class="box">ASAI Taj Delhi alert
+Noise: 65 dBA (limit 40)
+Temp 27.9°C · Lux 281.6667 · dB 65
+21/7/2026, 7:08:26 pm</div>
+
+  <h3>Deploy / seed commands</h3>
+  <div class="box">cd /Users/melroydmello/Documents/Arduino/asai-taj-delhi
+./scripts/deploy_whatsapp_function.sh
+PM_PHONE=+91XXXXXXXXXX PM_NAME="Name" node scripts/seed_alerts_config.js
+firebase functions:log --only onLiveWriteAlert</div>
+
+  <h3>Alert debugging tips</h3>
+  <ul>
+    <li><code>all hits in cooldown</code> → wait 30 min or delete <code>/ASAITajDelhi/alerts_state</code></li>
+    <li>Arduino Serial can spike above threshold between publishes; Function only sees <code>live.noise_level</code> at ~15s write — hold loud sound across a publish</li>
+    <li>Check Twilio message SID status if Firebase log shows <code>queued</code> but phone silent</li>
+  </ul>
+
+  <h2>6. Firmware evolution (code updates)</h2>
+  <table>
+    <tr><th>Version</th><th>Change</th></tr>
+    <tr><td>v3.x</td><td>Sensors + Serial + OLED only</td></tr>
+    <tr><td>v4.0</td><td>Firebase_ESP_Client → Taj RTDB</td></tr>
+    <tr><td>v4.1</td><td>HTTPS REST (lighter) PUT live</td></tr>
+    <tr><td>v4.2</td><td>WiFi auto-reconnect; live-only publish (log temporarily removed — mistake)</td></tr>
+    <tr><td><strong>v4.3</strong></td><td><strong>live PUT + log POST every sample</strong> (current); log retry once</td></tr>
+  </table>
+  <p>Flash board: ESP32S3 Dev Module, CDC on boot, 8MB flash, default_8MB partition, OPI PSRAM. WiFi credentials in <code>secrets.h</code>.</p>
+  <div class="box">FQBN example:
+esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=8M,PartitionScheme=default_8MB,PSRAM=opi</div>
+
+  <h2>7. Dashboard behaviour</h2>
+  <ul>
+    <li>Not a full page reload every 15s — Firebase <code>.on('value')</code> redraws when ESP writes</li>
+    <li>“Live · Xs ago” ticks every 1s; outdoor AQI refresh every 15 min</li>
+    <li>Stale detection if timestamp age &gt; ~60s</li>
+    <li>Single-node live UI; fleet concept is separate mockup</li>
+  </ul>
+
+  <h2>8. Fleet intelligence mockup (10 units)</h2>
+  <p>Separate chat produced a static dead mockup imagining 10 coordinated ASAI nodes at Taj Delhi (cross-zone gradients, PM ingress, brand spectral signature, property rollups).</p>
+  <div class="box">open docs/fleet-intelligence-mockup.html
+# Not wired to Firebase — presentation concept only</div>
+
+  <h2>9. Lessons learned</h2>
+  <ul>
+    <li>ESP32 = 2.4 GHz WiFi only (<code>DMello_5G</code> fails; <code>DMello_4G</code> works)</li>
+    <li>Do not use bare <code>millis()</code> as Firebase timestamp — dashboard marks years-stale</li>
+    <li>Outdoor AQI: aqi.in shows US AQI; don’t mix CPCB math into that comparison</li>
+    <li>Twilio sandbox 63015 = join required</li>
+    <li>Never drop <code>/log</code> for WiFi stability without asking — ASAI is data-first</li>
+    <li>Repo split: Taj lives in <code>asai-taj-delhi</code>, not <code>ac-ir-matrix</code></li>
+  </ul>
+
+  <h2>10. Still open / Taj presentation</h2>
+  <ol>
+    <li>Production WhatsApp (leave sandbox) + approved templates</li>
+    <li>Lock RTDB security rules before wider sharing</li>
+    <li>Pilot multi-zone live fleet (mockup → real paths per node)</li>
+    <li>Pilot proposal one-pager + demo script</li>
+    <li>Commit uncommitted Twilio/functions/firmware v4.3 to GitHub if not yet pushed</li>
+  </ol>
+
+  <h2>11. How to brief Claude</h2>
+  <ol>
+    <li>Upload this PDF (or HTML) into a Claude Project</li>
+    <li>Add repo URL: https://github.com/elonmuskisgod/asai-taj-delhi</li>
+    <li>Optional attachments: <code>fleet-intelligence-mockup.html</code>, <code>TWILIO_WHATSAPP_ALERTS.md</code></li>
+    <li>Do <strong>not</strong> upload <code>secrets.h</code> or <code>twilio.env</code></li>
+  </ol>
+
+  <p class="foot">
+    Generated 22 Jul 2026 · Melroy D’Mello · ASAI Taj Delhi · Share into Claude Projects as the post-Twilio replication record.
+  </p>
+
+</body>
+</html>

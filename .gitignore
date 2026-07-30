@@ -6,3 +6,7 @@ build/
 asai_dashboard/secrets.h
 .firebase/
 scripts/__pycache__/
+scripts/twilio.env
+scripts/node_modules/
+functions/node_modules/
+functions/.env*
